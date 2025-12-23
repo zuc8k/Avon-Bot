@@ -5,65 +5,92 @@ const GuildSettings = require('../models/GuildSettings');
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('credits')
-    .setDescription('Transfer credits')
-    .addUserOption(o =>
-      o.setName('user').setDescription('Target user').setRequired(true)
+    .setDescription('Transfer credits with captcha confirmation')
+    .addUserOption(option =>
+      option
+        .setName('user')
+        .setDescription('User to send credits to')
+        .setRequired(true)
     )
-    .addIntegerOption(o =>
-      o.setName('amount').setDescription('Amount').setRequired(true)
+    .addIntegerOption(option =>
+      option
+        .setName('amount')
+        .setDescription('Amount of credits to transfer')
+        .setRequired(true)
     ),
 
   async execute(interaction) {
     const { guild, channel, user } = interaction;
 
+    /* ================== CHECK TRANSFER CHANNEL ================== */
     const settings = await GuildSettings.findOne({ guildId: guild.id });
+
     if (!settings || settings.transferChannelId !== channel.id) {
       return interaction.reply({
-        content: '❌ Use this command in the transfer channel only',
+        content: '❌ This command can only be used in the transfer channel',
         ephemeral: true
       });
     }
 
+    /* ================== GET INPUT ================== */
     const target = interaction.options.getUser('user');
     const amount = interaction.options.getInteger('amount');
 
     if (target.bot || target.id === user.id) {
       return interaction.reply({
-        content: '❌ Invalid target user',
+        content: '❌ You cannot transfer credits to this user',
         ephemeral: true
       });
     }
 
+    if (amount <= 0) {
+      return interaction.reply({
+        content: '❌ Amount must be greater than 0',
+        ephemeral: true
+      });
+    }
+
+    /* ================== CAPTCHA ================== */
     const captcha = Math.floor(1000 + Math.random() * 9000);
 
     await interaction.reply(
-      `🔐 **Captcha Required**\nType this code to confirm transfer:\n**${captcha}**`
+      `🔐 **Captcha Required**
+Please type the following code to confirm the transfer:
+
+**${captcha}**`
     );
 
-    const filter = m =>
-      m.author.id === user.id &&
-      m.content === captcha.toString();
+    const filter = message =>
+      message.author.id === user.id &&
+      message.content === captcha.toString();
 
     try {
-      const collected = await channel.awaitMessages({
+      await channel.awaitMessages({
         filter,
         max: 1,
         time: 15000,
         errors: ['time']
       });
 
-    
-const { tax, received, plan } = await transferCredits(
-  guild.id,
-  user.id,
-  target.id,
-  amount
-);
+      /* ================== TRANSFER ================== */
+      const { tax, received, plan } = await transferCredits(
+        guild.id,
+        user.id,
+        target.id,
+        amount
+      );
 
-await interaction.followUp(
-  `✅ **Transfer Successful**
+      await interaction.followUp(
+        `✅ **Transfer Successful**
 👤 Plan: **${plan.toUpperCase()}**
 💸 Sent: ${amount}
 🧾 Tax: ${tax}
 📥 ${target} received: ${received}`
-);
+      );
+    } catch (error) {
+      await interaction.followUp(
+        '❌ Transfer cancelled or captcha was incorrect / timed out'
+      );
+    }
+  }
+};
