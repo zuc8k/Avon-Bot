@@ -1,62 +1,162 @@
-const express = require('express');
-const session = require('express-session');
-const passport = require('passport');
+const page = document.getElementById('page');
 
-const authMiddleware = require('./middleware/auth');
+/* ================== STORAGE ================== */
+function setGuild(id) {
+  localStorage.setItem('guildId', id);
+  loadDashboard();
+}
 
-// ================== ROUTES ==================
-const meRoute = require('./routes/me');
-const creditsRoute = require('./routes/credits');
-const creditLogsRoute = require('./routes/credit-logs');
-const premiumRoute = require('./routes/premium');
-const logsRoute = require('./routes/logs');
-const gptRoute = require('./routes/gpt');
-const premiumAdminRoute = require('./routes/premium-admin');
+function getGuild() {
+  return localStorage.getItem('guildId');
+}
 
-const app = express();
+function clearGuild() {
+  localStorage.removeItem('guildId');
+  loadGuilds();
+}
 
-/* ================== MIDDLEWARE ================== */
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+/* ================== AUTH CHECK ================== */
+async function getMe() {
+  const res = await fetch('/api/me');
+  if (res.status === 401) return null;
+  return await res.json();
+}
 
-// ✅ Static files (Dashboard UI)
-app.use(express.static('public'));
+/* ================== LOGIN PAGE ================== */
+function renderLogin() {
+  page.innerHTML = `
+    <div class="login-page">
+      <h1>AVON Dashboard</h1>
+      <p>Login with Discord to manage your servers</p>
+      <a class="discord-btn" href="/auth/discord">
+        Login with Discord
+      </a>
+    </div>
+  `;
+}
 
-app.use(
-  session({
-    secret: process.env.SESSION_SECRET || 'avon_secret',
-    resave: false,
-    saveUninitialized: false
-  })
-);
+/* ================== GUILD SELECT ================== */
+async function loadGuilds() {
+  const me = await getMe();
+  if (!me) return renderLogin();
 
-app.use(passport.initialize());
-app.use(passport.session());
+  page.innerHTML = `
+    <div class="header">
+      <h2>Select Server</h2>
+      <a href="/auth/logout">Logout</a>
+    </div>
 
-/* ================== API ROUTES ================== */
-app.use('/api/me', authMiddleware, meRoute);
-app.use('/api/credits', authMiddleware, creditsRoute);
-app.use('/api/credit-logs', authMiddleware, creditLogsRoute);
-app.use('/api/premium', authMiddleware, premiumRoute);
-app.use('/api/logs', authMiddleware, logsRoute);
-app.use('/api/gpt', authMiddleware, gptRoute);
-app.use('/api/premium-admin', authMiddleware, premiumAdminRoute);
+    <div class="grid">
+      ${me.user.guilds.map(g => `
+        <div class="card" onclick="setGuild('${g.id}')">
+          <h3>${g.name}</h3>
+          <p>ID: ${g.id}</p>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
 
-/* ================== HEALTH CHECK ================== */
-app.get('/health', (req, res) => {
-  res.json({
-    status: 'OK',
-    service: 'AVON Dashboard'
-  });
-});
+/* ================== DASHBOARD LAYOUT ================== */
+function renderLayout() {
+  page.innerHTML = `
+    <div class="layout">
+      <aside class="sidebar">
+        <h2>AVON</h2>
+        <ul>
+          <li onclick="loadOverview()">Overview</li>
+          <li onclick="loadCredits()">Credits</li>
+          <li onclick="loadPremium()">Premium</li>
+          <li onclick="loadLogs()">Logs</li>
+          <li onclick="loadGPT()">GPT</li>
+          <li onclick="clearGuild()">Change Server</li>
+        </ul>
+        <a class="logout-btn" href="/auth/logout">Logout</a>
+      </aside>
 
-/* ================== ERROR HANDLER ================== */
-app.use((err, req, res, next) => {
-  console.error('DASHBOARD ERROR:', err);
-  res.status(500).json({
-    error: 'Internal Server Error'
-  });
-});
+      <main class="content">
+        <div id="view"></div>
+      </main>
+    </div>
+  `;
+}
 
-/* ================== EXPORT ================== */
-module.exports = app;
+/* ================== DASHBOARD ================== */
+async function loadDashboard() {
+  const me = await getMe();
+  if (!me) return renderLogin();
+
+  const guildId = getGuild();
+  if (!guildId) return loadGuilds();
+
+  renderLayout();
+  loadOverview();
+}
+
+/* ================== VIEWS ================== */
+async function loadOverview() {
+  const guildId = getGuild();
+  const res = await fetch(`/api/me?guildId=${guildId}`);
+  const d = await res.json();
+
+  document.getElementById('view').innerHTML = `
+    <h2>Overview</h2>
+    <p><b>User:</b> ${d.user.username}</p>
+    <p><b>Role:</b> ${d.role}</p>
+    <p><b>Credits:</b> ${d.credits}</p>
+    <p><b>Plan:</b> ${d.premium.plan}</p>
+    <p><b>GPT:</b> ${d.gpt.used} / ${d.gpt.limit}</p>
+  `;
+}
+
+async function loadCredits() {
+  const guildId = getGuild();
+  const r = await fetch(`/api/credits?guildId=${guildId}`);
+  const d = await r.json();
+
+  document.getElementById('view').innerHTML = `
+    <h2>Credits</h2>
+    <p>Balance: ${d.balance}</p>
+  `;
+}
+
+async function loadPremium() {
+  const guildId = getGuild();
+  const r = await fetch(`/api/premium?guildId=${guildId}`);
+  const d = await r.json();
+
+  document.getElementById('view').innerHTML = `
+    <h2>Premium</h2>
+    <p>Plan: ${d.plan}</p>
+    <p>Status: ${d.active ? 'Active' : 'Inactive'}</p>
+  `;
+}
+
+async function loadLogs() {
+  const guildId = getGuild();
+  const r = await fetch(`/api/logs?guildId=${guildId}`);
+  const logs = await r.json();
+
+  document.getElementById('view').innerHTML = `
+    <h2>Logs</h2>
+    ${logs.map(l => `
+      <p>${l.from} → ${l.to} | ${l.amount}</p>
+    `).join('')}
+  `;
+}
+
+async function loadGPT() {
+  const guildId = getGuild();
+  const r = await fetch(`/api/gpt?guildId=${guildId}`);
+  const d = await r.json();
+
+  document.getElementById('view').innerHTML = `
+    <h2>AVON GPT</h2>
+    <p>Used: ${d.used}</p>
+    <p>Limit: ${d.limit}</p>
+    <p>Remaining: ${d.remaining}</p>
+  `;
+}
+
+/* ================== INIT ================== */
+loadDashboard();
