@@ -5,6 +5,8 @@ const {
 
 const { transferCredits } = require('../services/credits.service');
 const CreditSettings = require('../models/CreditSettings');
+const sendCreditLog = require('../utils/sendCreditLog');
+const client = require('../index');
 
 const activeCaptcha = new Map();
 
@@ -113,6 +115,17 @@ module.exports = {
             `Tax: **${result.tax}**\n` +
             `Received: **${result.received}**`
           );
+
+          /* ================== SEND LOG ================== */
+          await sendCreditLog(client, {
+            guildId,
+            from: fromId,
+            to: data.toId,
+            amount: data.amount,
+            tax: result.tax,
+            received: result.received
+          });
+
         } catch (err) {
           console.error(err);
           await msg.reply('❌ Transfer failed. Please try again later.');
