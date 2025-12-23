@@ -68,6 +68,7 @@ function renderLayout() {
           <li onclick="loadLogs()">Logs</li>
           <li onclick="loadGPT()">GPT</li>
           <li onclick="loadBotStatus()">Bot Status</li>
+          <li onclick="loadCommands()">Commands</li>
           <li onclick="clearGuild()">Change Server</li>
         </ul>
         <a href="/auth/logout" class="logout-btn">Logout</a>
@@ -92,7 +93,7 @@ async function loadDashboard() {
   loadOverview();
 }
 
-/* ================== VIEWS ================== */
+/* ================== OVERVIEW ================== */
 async function loadOverview() {
   const guildId = getGuild();
   const r = await fetch(`/api/me?guildId=${guildId}`);
@@ -108,6 +109,7 @@ async function loadOverview() {
   `;
 }
 
+/* ================== CREDITS ================== */
 async function loadCredits() {
   const guildId = getGuild();
   const r = await fetch(`/api/credits?guildId=${guildId}`);
@@ -119,6 +121,7 @@ async function loadCredits() {
   `;
 }
 
+/* ================== PREMIUM ================== */
 async function loadPremium() {
   const guildId = getGuild();
   const r = await fetch(`/api/premium?guildId=${guildId}`);
@@ -131,6 +134,7 @@ async function loadPremium() {
   `;
 }
 
+/* ================== LOGS ================== */
 async function loadLogs() {
   const guildId = getGuild();
   const r = await fetch(`/api/logs?guildId=${guildId}`);
@@ -144,6 +148,7 @@ async function loadLogs() {
   `;
 }
 
+/* ================== GPT ================== */
 async function loadGPT() {
   const guildId = getGuild();
   const r = await fetch(`/api/gpt?guildId=${guildId}`);
@@ -178,6 +183,63 @@ async function loadBotStatus() {
     <p><b>Servers:</b> ${d.guilds}</p>
     <p><b>Commands:</b> ${d.commands}</p>
   `;
+}
+
+/* ================== COMMANDS CONTROL ================== */
+async function loadCommands() {
+  const guildId = getGuild();
+
+  const meRes = await fetch(`/api/me?guildId=${guildId}`);
+  const me = await meRes.json();
+
+  if (!['owner', 'admin'].includes(me.role)) {
+    document.getElementById('view').innerHTML = `
+      <h2>Commands Control</h2>
+      <p style="color:red">Permission denied</p>
+    `;
+    return;
+  }
+
+  const r = await fetch(`/api/commands?guildId=${guildId}`);
+  const list = await r.json();
+
+  const all = ['ping','credits','premium','gpt','help','ban','kick','clear'];
+
+  const map = {};
+  list.forEach(x => map[x.command] = x.enabled);
+
+  document.getElementById('view').innerHTML = `
+    <h2>Commands Control</h2>
+    ${all.map(cmd => {
+      const enabled = map[cmd] !== false;
+      return `
+        <div class="card" style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <b>/${cmd}</b><br/>
+            <small style="color:${enabled ? '#4caf50' : '#f44336'}">
+              ${enabled ? 'Enabled' : 'Disabled'}
+            </small>
+          </div>
+          <input type="checkbox"
+            ${enabled ? 'checked' : ''}
+            onchange="toggleCommand('${cmd}', this.checked)"
+          />
+        </div>
+      `;
+    }).join('')}
+  `;
+}
+
+async function toggleCommand(command, enabled) {
+  const guildId = getGuild();
+
+  await fetch('/api/commands/toggle', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ guildId, command, enabled })
+  });
+
+  loadCommands();
 }
 
 /* ================== INIT ================== */
