@@ -1,10 +1,11 @@
 require('dotenv').config();
 
-const { 
-  Client, 
-  GatewayIntentBits, 
+const {
+  Client,
+  GatewayIntentBits,
   Partials,
-  Events 
+  Events,
+  Collection
 } = require('discord.js');
 
 const connectMongo = require('./config/mongo');
@@ -23,20 +24,28 @@ const client = new Client({
   ]
 });
 
+/* ================== COMMANDS COLLECTION ================== */
+client.commands = new Collection();
+
 /* ================== READY ================== */
 client.once(Events.ClientReady, async () => {
   console.log(`🤖 AVON BOT logged in as ${client.user.tag}`);
 
-  // Register slash commands
+  // Register slash commands + load to collection
   await registerCommands(client);
 });
 
-/* ================== SLASH COMMANDS ================== */
+/* ================== INTERACTIONS ================== */
 client.on(Events.InteractionCreate, async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
   const command = client.commands.get(interaction.commandName);
-  if (!command) return;
+  if (!command) {
+    return interaction.reply({
+      content: '❌ Command not found',
+      ephemeral: true
+    });
+  }
 
   try {
     await command.execute(interaction);
@@ -44,12 +53,12 @@ client.on(Events.InteractionCreate, async interaction => {
     console.error('❌ Command Error:', err);
 
     if (interaction.replied || interaction.deferred) {
-      interaction.followUp({
+      await interaction.followUp({
         content: '❌ حصل خطأ أثناء تنفيذ الأمر',
         ephemeral: true
       });
     } else {
-      interaction.reply({
+      await interaction.reply({
         content: '❌ حصل خطأ أثناء تنفيذ الأمر',
         ephemeral: true
       });
