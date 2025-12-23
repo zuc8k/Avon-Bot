@@ -1,9 +1,7 @@
 const Wallet = require('../models/Wallet');
 const CreditLog = require('../models/CreditLog');
 
-function calcTax(amount) {
-  return Math.floor(amount * 0.05); // 5%
-}
+const TAX_RATE = 0.05;
 
 async function getWallet(userId, guildId) {
   let wallet = await Wallet.findOne({ userId, guildId });
@@ -13,19 +11,23 @@ async function getWallet(userId, guildId) {
   return wallet;
 }
 
+function calcTax(amount) {
+  return Math.floor(amount * TAX_RATE);
+}
+
 async function transferCredits(guildId, fromId, toId, amount) {
+  if (amount <= 0) throw new Error('INVALID_AMOUNT');
+
   const from = await getWallet(fromId, guildId);
   const to = await getWallet(toId, guildId);
 
-  const tax = calcTax(amount);
-  const receive = amount - tax;
+  if (from.balance < amount) throw new Error('INSUFFICIENT_BALANCE');
 
-  if (from.balance < amount) {
-    throw new Error('INSUFFICIENT_BALANCE');
-  }
+  const tax = calcTax(amount);
+  const received = amount - tax;
 
   from.balance -= amount;
-  to.balance += receive;
+  to.balance += received;
 
   await from.save();
   await to.save();
@@ -35,12 +37,14 @@ async function transferCredits(guildId, fromId, toId, amount) {
     from: fromId,
     to: toId,
     amount,
-    tax
+    tax,
+    received
   });
 
-  return { tax, receive };
+  return { tax, received };
 }
 
 module.exports = {
+  getWallet,
   transferCredits
 };
