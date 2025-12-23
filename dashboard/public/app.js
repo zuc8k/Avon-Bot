@@ -27,13 +27,12 @@ function renderLogin() {
   page.innerHTML = `
     <div class="login-page">
       <h1>AVON Dashboard</h1>
-      <p>Login with Discord to continue</p>
       <a class="discord-btn" href="/auth/discord">Login with Discord</a>
     </div>
   `;
 }
 
-/* ================== GUILD SELECT ================== */
+/* ================== GUILDS ================== */
 async function loadGuilds() {
   const me = await getMe();
   if (!me) return renderLogin();
@@ -43,12 +42,10 @@ async function loadGuilds() {
       <h2>Select Server</h2>
       <a href="/auth/logout">Logout</a>
     </div>
-
     <div class="grid">
       ${me.user.guilds.map(g => `
         <div class="card" onclick="setGuild('${g.id}')">
           <h3>${g.name}</h3>
-          <p>ID: ${g.id}</p>
         </div>
       `).join('')}
     </div>
@@ -65,15 +62,12 @@ function renderLayout() {
           <li onclick="loadOverview()">Overview</li>
           <li onclick="loadCredits()">Credits</li>
           <li onclick="loadPremium()">Premium</li>
-          <li onclick="loadLogs()">Logs</li>
-          <li onclick="loadGPT()">GPT</li>
           <li onclick="loadBotStatus()">Bot Status</li>
           <li onclick="loadCommands()">Commands</li>
+          <li onclick="loadCreditSettings()">Credit Settings</li>
           <li onclick="clearGuild()">Change Server</li>
         </ul>
-        <a href="/auth/logout" class="logout-btn">Logout</a>
       </aside>
-
       <main class="content">
         <div id="view"></div>
       </main>
@@ -93,153 +87,42 @@ async function loadDashboard() {
   loadOverview();
 }
 
-/* ================== OVERVIEW ================== */
-async function loadOverview() {
-  const guildId = getGuild();
-  const r = await fetch(`/api/me?guildId=${guildId}`);
-  const d = await r.json();
-
-  document.getElementById('view').innerHTML = `
-    <h2>Overview</h2>
-    <p><b>User:</b> ${d.user.username}</p>
-    <p><b>Role:</b> ${d.role}</p>
-    <p><b>Credits:</b> ${d.credits}</p>
-    <p><b>Plan:</b> ${d.premium.plan}</p>
-    <p><b>GPT:</b> ${d.gpt.used} / ${d.gpt.limit}</p>
-  `;
-}
-
-/* ================== CREDITS ================== */
-async function loadCredits() {
-  const guildId = getGuild();
-  const r = await fetch(`/api/credits?guildId=${guildId}`);
-  const d = await r.json();
-
-  document.getElementById('view').innerHTML = `
-    <h2>Credits</h2>
-    <p>Balance: ${d.balance}</p>
-  `;
-}
-
-/* ================== PREMIUM ================== */
-async function loadPremium() {
-  const guildId = getGuild();
-  const r = await fetch(`/api/premium?guildId=${guildId}`);
-  const d = await r.json();
-
-  document.getElementById('view').innerHTML = `
-    <h2>Premium</h2>
-    <p>Plan: ${d.plan}</p>
-    <p>Status: ${d.active ? 'Active' : 'Inactive'}</p>
-  `;
-}
-
-/* ================== LOGS ================== */
-async function loadLogs() {
-  const guildId = getGuild();
-  const r = await fetch(`/api/logs?guildId=${guildId}`);
-  const logs = await r.json();
-
-  document.getElementById('view').innerHTML = `
-    <h2>Logs</h2>
-    ${logs.map(l => `
-      <p>${l.from} → ${l.to} | ${l.amount}</p>
-    `).join('')}
-  `;
-}
-
-/* ================== GPT ================== */
-async function loadGPT() {
-  const guildId = getGuild();
-  const r = await fetch(`/api/gpt?guildId=${guildId}`);
-  const d = await r.json();
-
-  document.getElementById('view').innerHTML = `
-    <h2>AVON GPT</h2>
-    <p>Used: ${d.used}</p>
-    <p>Limit: ${d.limit}</p>
-    <p>Remaining: ${d.remaining}</p>
-  `;
-}
-
-/* ================== BOT STATUS ================== */
-async function loadBotStatus() {
-  const r = await fetch('/api/bot-status');
-  const d = await r.json();
-
-  if (!d.online) {
-    document.getElementById('view').innerHTML = `
-      <h2>Bot Status</h2>
-      <p style="color:red">Bot is Offline</p>
-    `;
-    return;
-  }
-
-  document.getElementById('view').innerHTML = `
-    <h2>Bot Status</h2>
-    <p><b>Status:</b> <span style="color:#4caf50">Online</span></p>
-    <p><b>Bot:</b> ${d.username}</p>
-    <p><b>Ping:</b> ${d.ping} ms</p>
-    <p><b>Servers:</b> ${d.guilds}</p>
-    <p><b>Commands:</b> ${d.commands}</p>
-  `;
-}
-
-/* ================== COMMANDS CONTROL ================== */
-async function loadCommands() {
+/* ================== CREDIT SETTINGS ================== */
+async function loadCreditSettings() {
   const guildId = getGuild();
 
   const meRes = await fetch(`/api/me?guildId=${guildId}`);
   const me = await meRes.json();
 
   if (!['owner', 'admin'].includes(me.role)) {
-    document.getElementById('view').innerHTML = `
-      <h2>Commands Control</h2>
-      <p style="color:red">Permission denied</p>
-    `;
+    document.getElementById('view').innerHTML =
+      '<h2>Credit Settings</h2><p>Permission denied</p>';
     return;
   }
 
-  const r = await fetch(`/api/commands?guildId=${guildId}`);
-  const list = await r.json();
-
-  const all = ['ping','credits','premium','gpt','help','ban','kick','clear'];
-
-  const map = {};
-  list.forEach(x => map[x.command] = x.enabled);
+  const r = await fetch(`/api/credits-settings?guildId=${guildId}`);
+  const d = await r.json();
 
   document.getElementById('view').innerHTML = `
-    <h2>Commands Control</h2>
-    ${all.map(cmd => {
-      const enabled = map[cmd] !== false;
-      return `
-        <div class="card" style="display:flex;justify-content:space-between;align-items:center">
-          <div>
-            <b>/${cmd}</b><br/>
-            <small style="color:${enabled ? '#4caf50' : '#f44336'}">
-              ${enabled ? 'Enabled' : 'Disabled'}
-            </small>
-          </div>
-          <input type="checkbox"
-            ${enabled ? 'checked' : ''}
-            onchange="toggleCommand('${cmd}', this.checked)"
-          />
-        </div>
-      `;
-    }).join('')}
+    <h2>Credit Transfer Channel</h2>
+    <p>Current Channel ID:</p>
+    <input id="channelId" value="${d.transferChannelId || ''}" />
+    <br/><br/>
+    <button onclick="saveCreditChannel()">Save</button>
   `;
 }
 
-async function toggleCommand(command, enabled) {
+async function saveCreditChannel() {
   const guildId = getGuild();
+  const channelId = document.getElementById('channelId').value;
 
-  await fetch('/api/commands/toggle', {
+  await fetch('/api/credits-settings', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ guildId, command, enabled })
+    body: JSON.stringify({ guildId, channelId })
   });
 
-  loadCommands();
+  alert('Saved successfully');
 }
 
 /* ================== INIT ================== */
