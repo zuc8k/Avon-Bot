@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>AVON Dashboard</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+
+<div class="layout">
+  <aside class="sidebar">
+    <h2>AVON</h2>
+    <ul>
+      <li onclick="loadOverview()">Overview</li>
+      <li onclick="loadCredits()">Credits</li>
+      <li onclick="loadPremium()">Premium</li>
+      <li onclick="loadLogs()">Logs</li>
+      <li onclick="loadGPT()">GPT</li>
+    </ul>
+  </aside>
+
+  <main class="content">
+    <div id="view"></div>
+  </main>
+</div>
+
+<script src="/app.js"></script>
+</body>
+</html>
