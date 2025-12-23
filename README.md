@@ -1,12 +1,15 @@
-# Avon-Bot
-AVON SYSTEM is a full Discord ecosystem including:
-- Discord Bot
-- Credits System
-- Premium Membership
-- AVON GPT
-- Web Dashboard
+## Roadmap
 
-## Modules
-- /bot → Discord bot (credits, GPT, moderation)
-- /dashboard → Web dashboard (Discord login, stats)
-- /docs → Documentation & planning
+### Phase 1
+- Bot core
+- Credits system
+- Captcha & tax
+
+### Phase 2
+- Premium system
+- AVON GPT
+
+### Phase 3
+- Dashboard
+- Discord OAuth
+- Bot integration
