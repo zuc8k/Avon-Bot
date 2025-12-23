@@ -8,26 +8,14 @@
 </head>
 <body>
 
-<div class="layout">
-  <aside class="sidebar">
-    <h2>AVON</h2>
-
-    <a href="/auth/discord" class="login-btn">Login with Discord</a>
-
-    <ul>
-      <li onclick="loadOverview()">Overview</li>
-      <li onclick="loadCredits()">Credits</li>
-      <li onclick="loadPremium()">Premium</li>
-      <li onclick="loadLogs()">Logs</li>
-      <li onclick="loadGPT()">GPT</li>
-    </ul>
-
-    <a href="/auth/logout" class="logout-btn">Logout</a>
-  </aside>
-
-  <main class="content">
-    <div id="view"></div>
-  </main>
+<div id="page">
+  <div class="login-page">
+    <h1>AVON Dashboard</h1>
+    <p>Login with Discord to continue</p>
+    <a class="discord-btn" href="/auth/discord">
+      Login with Discord
+    </a>
+  </div>
 </div>
 
 <script src="/app.js"></script>
