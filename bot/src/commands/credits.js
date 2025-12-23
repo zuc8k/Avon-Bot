@@ -1,96 +1,108 @@
-const { SlashCommandBuilder } = require('discord.js');
+const {
+  SlashCommandBuilder,
+  EmbedBuilder
+} = require('discord.js');
+
 const { transferCredits } = require('../services/credits.service');
-const GuildSettings = require('../models/GuildSettings');
+
+const activeCaptcha = new Map();
 
 module.exports = {
   data: new SlashCommandBuilder()
-    .setName('credits')
-    .setDescription('Transfer credits with captcha confirmation')
-    .addUserOption(option =>
-      option
-        .setName('user')
-        .setDescription('User to send credits to')
+    .setName('c')
+    .setDescription('Transfer credits to another user')
+    .addUserOption(opt =>
+      opt.setName('user')
+        .setDescription('Target user')
         .setRequired(true)
     )
-    .addIntegerOption(option =>
-      option
-        .setName('amount')
-        .setDescription('Amount of credits to transfer')
+    .addIntegerOption(opt =>
+      opt.setName('amount')
+        .setDescription('Amount to transfer')
         .setRequired(true)
     ),
 
   async execute(interaction) {
-    const { guild, channel, user } = interaction;
-
-    /* ================== CHECK TRANSFER CHANNEL ================== */
-    const settings = await GuildSettings.findOne({ guildId: guild.id });
-
-    if (!settings || settings.transferChannelId !== channel.id) {
-      return interaction.reply({
-        content: '❌ This command can only be used in the transfer channel',
-        ephemeral: true
-      });
-    }
-
-    /* ================== GET INPUT ================== */
-    const target = interaction.options.getUser('user');
+    const fromId = interaction.user.id;
+    const toUser = interaction.options.getUser('user');
     const amount = interaction.options.getInteger('amount');
+    const guildId = interaction.guildId;
 
-    if (target.bot || target.id === user.id) {
-      return interaction.reply({
-        content: '❌ You cannot transfer credits to this user',
-        ephemeral: true
-      });
+    if (toUser.bot) {
+      return interaction.reply({ content: '❌ You cannot transfer to bots.', ephemeral: true });
     }
 
     if (amount <= 0) {
-      return interaction.reply({
-        content: '❌ Amount must be greater than 0',
-        ephemeral: true
-      });
+      return interaction.reply({ content: '❌ Invalid amount.', ephemeral: true });
     }
 
-    /* ================== CAPTCHA ================== */
-    const captcha = Math.floor(1000 + Math.random() * 9000);
+    // توليد كابتشا
+    const captcha = Math.floor(1000 + Math.random() * 9000).toString();
 
-    await interaction.reply(
-      `🔐 **Captcha Required**
-Please type the following code to confirm the transfer:
+    activeCaptcha.set(fromId, {
+      captcha,
+      toId: toUser.id,
+      amount,
+      guildId,
+      tries: 0
+    });
 
-**${captcha}**`
-    );
+    const embed = new EmbedBuilder()
+      .setTitle('🔐 Credit Transfer Verification')
+      .setDescription(
+        `To transfer **${amount} credits** to **${toUser.username}**\n\n` +
+        `Please type the following code:\n\n` +
+        `**\`${captcha}\`**`
+      )
+      .setColor('#b7faff')
+      .setFooter({ text: 'You have 3 attempts' });
 
-    const filter = message =>
-      message.author.id === user.id &&
-      message.content === captcha.toString();
+    await interaction.reply({ embeds: [embed], ephemeral: true });
 
-    try {
-      await channel.awaitMessages({
-        filter,
-        max: 1,
-        time: 15000,
-        errors: ['time']
-      });
+    const filter = m => m.author.id === fromId;
+    const collector = interaction.channel.createMessageCollector({
+      filter,
+      time: 60000
+    });
 
-      /* ================== TRANSFER ================== */
-      const { tax, received, plan } = await transferCredits(
-        guild.id,
-        user.id,
-        target.id,
-        amount
-      );
+    collector.on('collect', async msg => {
+      const data = activeCaptcha.get(fromId);
+      if (!data) return collector.stop();
 
-      await interaction.followUp(
-        `✅ **Transfer Successful**
-👤 Plan: **${plan.toUpperCase()}**
-💸 Sent: ${amount}
-🧾 Tax: ${tax}
-📥 ${target} received: ${received}`
-      );
-    } catch (error) {
-      await interaction.followUp(
-        '❌ Transfer cancelled or captcha was incorrect / timed out'
-      );
-    }
+      if (msg.content === data.captcha) {
+        try {
+          const result = await transferCredits(
+            guildId,
+            fromId,
+            data.toId,
+            data.amount
+          );
+
+          await msg.reply(
+            `✅ Transfer successful!\n` +
+            `Tax: **${result.tax}**\n` +
+            `Received: **${result.received}**`
+          );
+        } catch (err) {
+          await msg.reply('❌ Transfer failed.');
+        }
+
+        activeCaptcha.delete(fromId);
+        collector.stop();
+      } else {
+        data.tries++;
+        if (data.tries >= 3) {
+          await msg.reply('❌ Too many attempts. Transfer cancelled.');
+          activeCaptcha.delete(fromId);
+          collector.stop();
+        } else {
+          await msg.reply('❌ Wrong code. Try again.');
+        }
+      }
+    });
+
+    collector.on('end', () => {
+      activeCaptcha.delete(fromId);
+    });
   }
 };
