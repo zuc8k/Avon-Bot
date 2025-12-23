@@ -1,14 +1,25 @@
 const express = require('express');
 const router = express.Router();
-const Transaction = require('../../bot/src/models/Transaction');
+const CreditLog = require('../../bot/src/models/CreditLog');
 
 router.get('/', async (req, res) => {
-  if (!['owner', 'admin'].includes(req.user.role)) {
-    return res.status(403).json({ error: 'Forbidden' });
-  }
+  try {
+    if (!['owner', 'admin'].includes(req.user.role)) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
 
-  const logs = await Transaction.find({}).sort({ createdAt: -1 }).limit(50);
-  res.json(logs);
+    const { guildId } = req.query;
+
+    const logs = await CreditLog
+      .find({ guildId })
+      .sort({ createdAt: -1 })
+      .limit(100);
+
+    res.json(logs);
+  } catch (err) {
+    console.error('LOGS ERROR:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
 });
 
 module.exports = router;
