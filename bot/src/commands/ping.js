@@ -1,6 +1,11 @@
+const { SlashCommandBuilder } = require('discord.js');
+
 module.exports = {
-  name: 'ping',
-  execute(interaction) {
-    interaction.reply('Ping is from AVON BOT');
+  data: new SlashCommandBuilder()
+    .setName('ping')
+    .setDescription('Test AVON BOT response'),
+
+  async execute(interaction) {
+    await interaction.reply('🏓 Pong from AVON BOT');
   }
 };
