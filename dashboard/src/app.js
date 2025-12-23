@@ -2,11 +2,11 @@ const express = require('express');
 const session = require('express-session');
 const passport = require('passport');
 
-require('./auth/discord'); // 👈 مهم
+require('./auth/discord'); // Discord OAuth
 
 const authMiddleware = require('./middleware/auth');
 
-// routes
+// ================== ROUTES ==================
 const authRoutes = require('./routes/auth');
 const meRoute = require('./routes/me');
 const creditsRoute = require('./routes/credits');
@@ -15,6 +15,7 @@ const premiumRoute = require('./routes/premium');
 const logsRoute = require('./routes/logs');
 const gptRoute = require('./routes/gpt');
 const premiumAdminRoute = require('./routes/premium-admin');
+const botStatusRoute = require('./routes/bot-status');
 
 const app = express();
 
@@ -45,10 +46,22 @@ app.use('/api/premium', authMiddleware, premiumRoute);
 app.use('/api/logs', authMiddleware, logsRoute);
 app.use('/api/gpt', authMiddleware, gptRoute);
 app.use('/api/premium-admin', authMiddleware, premiumAdminRoute);
+app.use('/api/bot-status', authMiddleware, botStatusRoute);
 
 /* ================== HEALTH ================== */
 app.get('/health', (req, res) => {
-  res.json({ status: 'OK', service: 'AVON Dashboard' });
+  res.json({
+    status: 'OK',
+    service: 'AVON Dashboard'
+  });
+});
+
+/* ================== ERROR ================== */
+app.use((err, req, res, next) => {
+  console.error('DASHBOARD ERROR:', err);
+  res.status(500).json({
+    error: 'Internal Server Error'
+  });
 });
 
 module.exports = app;
