@@ -1,8 +1,18 @@
 # AVON Dashboard
 
+## Overview
+Web dashboard connected to AVON BOT.
+
 ## Features
-- Discord OAuth Login
+- Discord Login (OAuth2)
 - Credits overview
 - Premium status
-- AVON GPT usage
-- Owner panel
+- AVON GPT usage statistics
+- Owner control panel
+
+## Pages
+- Overview
+- Credits
+- Premium
+- AVON GPT
+- Logs
