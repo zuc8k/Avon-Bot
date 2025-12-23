@@ -4,6 +4,7 @@ const {
 } = require('discord.js');
 
 const { transferCredits } = require('../services/credits.service');
+const CreditSettings = require('../models/CreditSettings');
 
 const activeCaptcha = new Map();
 
@@ -27,16 +28,41 @@ module.exports = {
     const toUser = interaction.options.getUser('user');
     const amount = interaction.options.getInteger('amount');
     const guildId = interaction.guildId;
+    const channelId = interaction.channelId;
 
+    /* ================== CHANNEL CHECK ================== */
+    const settings = await CreditSettings.findOne({ guildId });
+
+    if (!settings || settings.transferChannelId !== channelId) {
+      return interaction.reply({
+        content: '❌ Credit transfers are only allowed in the configured transfer channel.',
+        ephemeral: true
+      });
+    }
+
+    /* ================== VALIDATION ================== */
     if (toUser.bot) {
-      return interaction.reply({ content: '❌ You cannot transfer to bots.', ephemeral: true });
+      return interaction.reply({
+        content: '❌ You cannot transfer credits to bots.',
+        ephemeral: true
+      });
+    }
+
+    if (toUser.id === fromId) {
+      return interaction.reply({
+        content: '❌ You cannot transfer credits to yourself.',
+        ephemeral: true
+      });
     }
 
     if (amount <= 0) {
-      return interaction.reply({ content: '❌ Invalid amount.', ephemeral: true });
+      return interaction.reply({
+        content: '❌ Invalid amount.',
+        ephemeral: true
+      });
     }
 
-    // توليد كابتشا
+    /* ================== CAPTCHA ================== */
     const captcha = Math.floor(1000 + Math.random() * 9000).toString();
 
     activeCaptcha.set(fromId, {
@@ -50,15 +76,19 @@ module.exports = {
     const embed = new EmbedBuilder()
       .setTitle('🔐 Credit Transfer Verification')
       .setDescription(
-        `To transfer **${amount} credits** to **${toUser.username}**\n\n` +
-        `Please type the following code:\n\n` +
+        `You are about to transfer **${amount} credits** to **${toUser.username}**\n\n` +
+        `Please type the following code to confirm:\n\n` +
         `**\`${captcha}\`**`
       )
       .setColor('#b7faff')
-      .setFooter({ text: 'You have 3 attempts' });
+      .setFooter({ text: 'You have 3 attempts • 60 seconds' });
 
-    await interaction.reply({ embeds: [embed], ephemeral: true });
+    await interaction.reply({
+      embeds: [embed],
+      ephemeral: true
+    });
 
+    /* ================== COLLECTOR ================== */
     const filter = m => m.author.id === fromId;
     const collector = interaction.channel.createMessageCollector({
       filter,
@@ -79,20 +109,22 @@ module.exports = {
           );
 
           await msg.reply(
-            `✅ Transfer successful!\n` +
+            `✅ **Transfer Successful**\n` +
             `Tax: **${result.tax}**\n` +
             `Received: **${result.received}**`
           );
         } catch (err) {
-          await msg.reply('❌ Transfer failed.');
+          console.error(err);
+          await msg.reply('❌ Transfer failed. Please try again later.');
         }
 
         activeCaptcha.delete(fromId);
         collector.stop();
       } else {
         data.tries++;
+
         if (data.tries >= 3) {
-          await msg.reply('❌ Too many attempts. Transfer cancelled.');
+          await msg.reply('❌ Too many wrong attempts. Transfer cancelled.');
           activeCaptcha.delete(fromId);
           collector.stop();
         } else {
