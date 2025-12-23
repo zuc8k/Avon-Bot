@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-const creditLogSchema = new mongoose.Schema({
+const schema = new mongoose.Schema({
   guildId: String,
   from: String,
   to: String,
@@ -10,4 +10,4 @@ const creditLogSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
-module.exports = mongoose.model('CreditLog', creditLogSchema);
+module.exports = mongoose.model('CreditLog', schema);
