@@ -1,12 +1,13 @@
 const mongoose = require('mongoose');
 
-const logSchema = new mongoose.Schema({
+const creditLogSchema = new mongoose.Schema({
   guildId: String,
   from: String,
   to: String,
   amount: Number,
   tax: Number,
+  received: Number,
   createdAt: { type: Date, default: Date.now }
 });
 
-module.exports = mongoose.model('CreditLog', logSchema);
+module.exports = mongoose.model('CreditLog', creditLogSchema);
