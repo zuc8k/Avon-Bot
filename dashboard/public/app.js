@@ -15,27 +15,25 @@ function clearGuild() {
   loadGuilds();
 }
 
-/* ================== AUTH CHECK ================== */
+/* ================== AUTH ================== */
 async function getMe() {
   const res = await fetch('/api/me');
   if (res.status === 401) return null;
   return await res.json();
 }
 
-/* ================== LOGIN PAGE ================== */
+/* ================== LOGIN ================== */
 function renderLogin() {
   page.innerHTML = `
     <div class="login-page">
       <h1>AVON Dashboard</h1>
-      <p>Login with Discord to manage your servers</p>
-      <a class="discord-btn" href="/auth/discord">
-        Login with Discord
-      </a>
+      <p>Login with Discord to continue</p>
+      <a class="discord-btn" href="/auth/discord">Login with Discord</a>
     </div>
   `;
 }
 
-/* ================== GUILD SELECT ================== */
+/* ================== GUILDS ================== */
 async function loadGuilds() {
   const me = await getMe();
   if (!me) return renderLogin();
@@ -57,7 +55,7 @@ async function loadGuilds() {
   `;
 }
 
-/* ================== DASHBOARD LAYOUT ================== */
+/* ================== LAYOUT ================== */
 function renderLayout() {
   page.innerHTML = `
     <div class="layout">
@@ -71,7 +69,7 @@ function renderLayout() {
           <li onclick="loadGPT()">GPT</li>
           <li onclick="clearGuild()">Change Server</li>
         </ul>
-        <a class="logout-btn" href="/auth/logout">Logout</a>
+        <a href="/auth/logout" class="logout-btn">Logout</a>
       </aside>
 
       <main class="content">
@@ -96,8 +94,8 @@ async function loadDashboard() {
 /* ================== VIEWS ================== */
 async function loadOverview() {
   const guildId = getGuild();
-  const res = await fetch(`/api/me?guildId=${guildId}`);
-  const d = await res.json();
+  const r = await fetch(`/api/me?guildId=${guildId}`);
+  const d = await r.json();
 
   document.getElementById('view').innerHTML = `
     <h2>Overview</h2>
@@ -120,18 +118,49 @@ async function loadCredits() {
   `;
 }
 
+/* ================== PREMIUM PAGE ================== */
 async function loadPremium() {
   const guildId = getGuild();
   const r = await fetch(`/api/premium?guildId=${guildId}`);
   const d = await r.json();
 
   document.getElementById('view').innerHTML = `
-    <h2>Premium</h2>
-    <p>Plan: ${d.plan}</p>
-    <p>Status: ${d.active ? 'Active' : 'Inactive'}</p>
+    <h2>Membership Plans</h2>
+
+    <div class="grid">
+      ${renderPlan('Plus', '5$', 'Lower tax & more GPT', 'plus', d.plan)}
+      ${renderPlan('Premium', '20$', 'No tax & high limits', 'premium', d.plan)}
+      ${renderPlan('Max', '50$', 'Unlimited power', 'max', d.plan)}
+    </div>
+
+    <p style="margin-top:20px;color:#aaa">
+      Current Plan: <b>${d.plan}</b>
+    </p>
   `;
 }
 
+function renderPlan(name, price, desc, key, current) {
+  const active = current === key;
+  return `
+    <div class="card">
+      <h3>${name}</h3>
+      <p>${desc}</p>
+      <h2>${price}</h2>
+      ${active
+        ? `<p style="color:#4caf50">Active</p>`
+        : `<button onclick="requestPlan('${key}')">Request</button>`
+      }
+    </div>
+  `;
+}
+
+function requestPlan(plan) {
+  alert(
+    `Request sent for ${plan} plan.\nAdmin will activate it for you.`
+  );
+}
+
+/* ================== LOGS ================== */
 async function loadLogs() {
   const guildId = getGuild();
   const r = await fetch(`/api/logs?guildId=${guildId}`);
@@ -145,6 +174,7 @@ async function loadLogs() {
   `;
 }
 
+/* ================== GPT ================== */
 async function loadGPT() {
   const guildId = getGuild();
   const r = await fetch(`/api/gpt?guildId=${guildId}`);
