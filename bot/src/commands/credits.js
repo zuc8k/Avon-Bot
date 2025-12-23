@@ -1,6 +1,6 @@
 const { SlashCommandBuilder } = require('discord.js');
 const { transferCredits } = require('../services/credits.service');
-const setup = require('./setup-transfer');
+const GuildSettings = require('../models/GuildSettings');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -14,12 +14,12 @@ module.exports = {
     ),
 
   async execute(interaction) {
-    const guildId = interaction.guild.id;
-    const channelId = setup.getChannel(guildId);
+    const { guild, channel, user } = interaction;
 
-    if (!channelId || interaction.channel.id !== channelId) {
+    const settings = await GuildSettings.findOne({ guildId: guild.id });
+    if (!settings || settings.transferChannelId !== channel.id) {
       return interaction.reply({
-        content: '❌ This command can only be used in the transfer channel',
+        content: '❌ Use this command in the transfer channel only',
         ephemeral: true
       });
     }
@@ -27,36 +27,43 @@ module.exports = {
     const target = interaction.options.getUser('user');
     const amount = interaction.options.getInteger('amount');
 
+    if (target.bot || target.id === user.id) {
+      return interaction.reply({
+        content: '❌ Invalid target user',
+        ephemeral: true
+      });
+    }
+
     const captcha = Math.floor(1000 + Math.random() * 9000);
 
     await interaction.reply(
-      `🔐 Confirm transfer by typing this code: **${captcha}**`
+      `🔐 **Captcha Required**\nType this code to confirm transfer:\n**${captcha}**`
     );
 
     const filter = m =>
-      m.author.id === interaction.user.id &&
+      m.author.id === user.id &&
       m.content === captcha.toString();
 
     try {
-      const collected = await interaction.channel.awaitMessages({
+      const collected = await channel.awaitMessages({
         filter,
         max: 1,
         time: 15000,
         errors: ['time']
       });
 
-      const result = await transferCredits(
-        guildId,
-        interaction.user.id,
+      const { tax, received } = await transferCredits(
+        guild.id,
+        user.id,
         target.id,
         amount
       );
 
-      interaction.followUp(
-        `✅ Transfer complete\n💰 Sent: ${amount}\n🧾 Tax: ${result.tax}\n📥 Received: ${result.receive}`
+      await interaction.followUp(
+        `✅ **Transfer Successful**\n💸 Sent: ${amount}\n🧾 Tax: ${tax}\n📥 ${target} received: ${received}`
       );
     } catch {
-      interaction.followUp('❌ Transfer canceled or wrong code');
+      interaction.followUp('❌ Transfer canceled or wrong captcha');
     }
   }
 };
