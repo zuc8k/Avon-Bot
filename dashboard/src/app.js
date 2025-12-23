@@ -4,13 +4,11 @@ const passport = require('passport');
 
 const authMiddleware = require('./middleware/auth');
 
-// ================== ROUTES ==================
+// routes
 const meRoute = require('./routes/me');
 const creditsRoute = require('./routes/credits');
 const creditLogsRoute = require('./routes/credit-logs');
 const premiumRoute = require('./routes/premium');
-const gptRoute = require('./routes/gpt');
-const logsRoute = require('./routes/logs');
 
 const app = express();
 
@@ -30,26 +28,12 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 /* ================== API ROUTES ================== */
-
-// current user info
 app.use('/api/me', authMiddleware, meRoute);
-
-// credits balance
 app.use('/api/credits', authMiddleware, creditsRoute);
-
-// credits transfer logs (admin / owner)
 app.use('/api/credit-logs', authMiddleware, creditLogsRoute);
-
-// premium system
 app.use('/api/premium', authMiddleware, premiumRoute);
 
-// GPT usage
-app.use('/api/gpt', authMiddleware, gptRoute);
-
-// general logs (admin / owner)
-app.use('/api/logs', authMiddleware, logsRoute);
-
-/* ================== HEALTH CHECK ================== */
+/* ================== HEALTH ================== */
 app.get('/health', (req, res) => {
   res.json({
     status: 'OK',
@@ -57,13 +41,10 @@ app.get('/health', (req, res) => {
   });
 });
 
-/* ================== ERROR HANDLER ================== */
+/* ================== ERROR ================== */
 app.use((err, req, res, next) => {
-  console.error('❌ Dashboard Error:', err);
-  res.status(500).json({
-    error: 'Internal Server Error'
-  });
+  console.error(err);
+  res.status(500).json({ error: 'Internal Server Error' });
 });
 
-/* ================== EXPORT APP ================== */
 module.exports = app;
