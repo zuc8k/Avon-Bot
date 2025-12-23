@@ -1,7 +1,14 @@
 const Wallet = require('../models/Wallet');
 const CreditLog = require('../models/CreditLog');
+const { getUserPlan } = require('./premium.service');
 
-const TAX_RATE = 0.05;
+// نسب الضريبة حسب الخطة
+const TAX_BY_PLAN = {
+  free: 0.05,
+  plus: 0.03,
+  premium: 0,
+  max: 0
+};
 
 async function getWallet(userId, guildId) {
   let wallet = await Wallet.findOne({ userId, guildId });
@@ -11,8 +18,9 @@ async function getWallet(userId, guildId) {
   return wallet;
 }
 
-function calcTax(amount) {
-  return Math.floor(amount * TAX_RATE);
+function calcTax(amount, plan) {
+  const rate = TAX_BY_PLAN[plan] ?? 0.05;
+  return Math.floor(amount * rate);
 }
 
 async function transferCredits(guildId, fromId, toId, amount) {
@@ -23,7 +31,9 @@ async function transferCredits(guildId, fromId, toId, amount) {
 
   if (from.balance < amount) throw new Error('INSUFFICIENT_BALANCE');
 
-  const tax = calcTax(amount);
+  // 👑 هنا الربط مع البريميم
+  const plan = await getUserPlan(fromId, guildId);
+  const tax = calcTax(amount, plan);
   const received = amount - tax;
 
   from.balance -= amount;
@@ -41,7 +51,7 @@ async function transferCredits(guildId, fromId, toId, amount) {
     received
   });
 
-  return { tax, received };
+  return { tax, received, plan };
 }
 
 module.exports = {
