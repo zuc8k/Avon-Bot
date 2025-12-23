@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>AVON Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
@@ -10,6 +11,9 @@
 <div class="layout">
   <aside class="sidebar">
     <h2>AVON</h2>
+
+    <a href="/auth/discord" class="login-btn">Login with Discord</a>
+
     <ul>
       <li onclick="loadOverview()">Overview</li>
       <li onclick="loadCredits()">Credits</li>
@@ -17,6 +21,8 @@
       <li onclick="loadLogs()">Logs</li>
       <li onclick="loadGPT()">GPT</li>
     </ul>
+
+    <a href="/auth/logout" class="logout-btn">Logout</a>
   </aside>
 
   <main class="content">
