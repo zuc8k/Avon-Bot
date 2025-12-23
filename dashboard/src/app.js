@@ -4,11 +4,14 @@ const passport = require('passport');
 
 const authMiddleware = require('./middleware/auth');
 
-// routes
+// ================== ROUTES ==================
 const meRoute = require('./routes/me');
 const creditsRoute = require('./routes/credits');
 const creditLogsRoute = require('./routes/credit-logs');
 const premiumRoute = require('./routes/premium');
+const logsRoute = require('./routes/logs');
+const gptRoute = require('./routes/gpt');
+const premiumAdminRoute = require('./routes/premium-admin');
 
 const app = express();
 
@@ -32,8 +35,11 @@ app.use('/api/me', authMiddleware, meRoute);
 app.use('/api/credits', authMiddleware, creditsRoute);
 app.use('/api/credit-logs', authMiddleware, creditLogsRoute);
 app.use('/api/premium', authMiddleware, premiumRoute);
+app.use('/api/logs', authMiddleware, logsRoute);
+app.use('/api/gpt', authMiddleware, gptRoute);
+app.use('/api/premium-admin', authMiddleware, premiumAdminRoute);
 
-/* ================== HEALTH ================== */
+/* ================== HEALTH CHECK ================== */
 app.get('/health', (req, res) => {
   res.json({
     status: 'OK',
@@ -41,10 +47,13 @@ app.get('/health', (req, res) => {
   });
 });
 
-/* ================== ERROR ================== */
+/* ================== ERROR HANDLER ================== */
 app.use((err, req, res, next) => {
-  console.error(err);
-  res.status(500).json({ error: 'Internal Server Error' });
+  console.error('DASHBOARD ERROR:', err);
+  res.status(500).json({
+    error: 'Internal Server Error'
+  });
 });
 
+/* ================== EXPORT ================== */
 module.exports = app;
