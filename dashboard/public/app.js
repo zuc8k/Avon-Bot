@@ -65,6 +65,7 @@ function renderLayout() {
           <li onclick="loadBotStatus()">Bot Status</li>
           <li onclick="loadCommands()">Commands</li>
           <li onclick="loadCreditSettings()">Credit Settings</li>
+          <li onclick="loadCreditLogs()">Credit Logs</li>
           <li onclick="clearGuild()">Change Server</li>
         </ul>
       </aside>
@@ -85,6 +86,70 @@ async function loadDashboard() {
 
   renderLayout();
   loadOverview();
+}
+
+/* ================== OVERVIEW ================== */
+async function loadOverview() {
+  const guildId = getGuild();
+  const r = await fetch(`/api/me?guildId=${guildId}`);
+  const d = await r.json();
+
+  document.getElementById('view').innerHTML = `
+    <h2>Overview</h2>
+    <p><b>User:</b> ${d.user.username}</p>
+    <p><b>Role:</b> ${d.role}</p>
+    <p><b>Credits:</b> ${d.credits}</p>
+    <p><b>Plan:</b> ${d.premium.plan}</p>
+    <p><b>GPT:</b> ${d.gpt.used} / ${d.gpt.limit}</p>
+  `;
+}
+
+/* ================== CREDITS ================== */
+async function loadCredits() {
+  const guildId = getGuild();
+  const r = await fetch(`/api/credits?guildId=${guildId}`);
+  const d = await r.json();
+
+  document.getElementById('view').innerHTML = `
+    <h2>Credits</h2>
+    <p>Balance: ${d.balance}</p>
+  `;
+}
+
+/* ================== PREMIUM ================== */
+async function loadPremium() {
+  const guildId = getGuild();
+  const r = await fetch(`/api/premium?guildId=${guildId}`);
+  const d = await r.json();
+
+  document.getElementById('view').innerHTML = `
+    <h2>Premium</h2>
+    <p>Plan: ${d.plan}</p>
+    <p>Status: ${d.active ? 'Active' : 'Inactive'}</p>
+  `;
+}
+
+/* ================== BOT STATUS ================== */
+async function loadBotStatus() {
+  const r = await fetch('/api/bot-status');
+  const d = await r.json();
+
+  if (!d.online) {
+    document.getElementById('view').innerHTML = `
+      <h2>Bot Status</h2>
+      <p style="color:red">Bot is Offline</p>
+    `;
+    return;
+  }
+
+  document.getElementById('view').innerHTML = `
+    <h2>Bot Status</h2>
+    <p><b>Status:</b> <span style="color:#4caf50">Online</span></p>
+    <p><b>Bot:</b> ${d.username}</p>
+    <p><b>Ping:</b> ${d.ping} ms</p>
+    <p><b>Servers:</b> ${d.guilds}</p>
+    <p><b>Commands:</b> ${d.commands}</p>
+  `;
 }
 
 /* ================== CREDIT SETTINGS ================== */
@@ -123,6 +188,34 @@ async function saveCreditChannel() {
   });
 
   alert('Saved successfully');
+}
+
+/* ================== CREDIT LOGS ================== */
+async function loadCreditLogs() {
+  const guildId = getGuild();
+  const r = await fetch(`/api/credit-logs?guildId=${guildId}`);
+
+  if (r.status === 403) {
+    document.getElementById('view').innerHTML =
+      '<h2>Credit Logs</h2><p>Permission denied</p>';
+    return;
+  }
+
+  const logs = await r.json();
+
+  document.getElementById('view').innerHTML = `
+    <h2>Credit Logs</h2>
+    ${logs.map(l => `
+      <div class="card">
+        <p><b>From:</b> ${l.from}</p>
+        <p><b>To:</b> ${l.to}</p>
+        <p><b>Amount:</b> ${l.amount}</p>
+        <p><b>Tax:</b> ${l.tax}</p>
+        <p><b>Received:</b> ${l.received}</p>
+        <small>${new Date(l.createdAt).toLocaleString()}</small>
+      </div>
+    `).join('')}
+  `;
 }
 
 /* ================== INIT ================== */
