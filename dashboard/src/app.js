@@ -2,11 +2,11 @@ const express = require('express');
 const session = require('express-session');
 const passport = require('passport');
 
-require('./auth/discord'); // Discord OAuth
+require('./auth/discord');
 
 const authMiddleware = require('./middleware/auth');
 
-// ================== ROUTES ==================
+// ROUTES
 const authRoutes = require('./routes/auth');
 const meRoute = require('./routes/me');
 const creditsRoute = require('./routes/credits');
@@ -14,8 +14,9 @@ const creditLogsRoute = require('./routes/credit-logs');
 const premiumRoute = require('./routes/premium');
 const logsRoute = require('./routes/logs');
 const gptRoute = require('./routes/gpt');
-const premiumAdminRoute = require('./routes/premium-admin');
 const botStatusRoute = require('./routes/bot-status');
+const commandsRoute = require('./routes/commands');
+const creditsSettingsRoute = require('./routes/credits-settings');
 
 const app = express();
 
@@ -45,23 +46,19 @@ app.use('/api/credit-logs', authMiddleware, creditLogsRoute);
 app.use('/api/premium', authMiddleware, premiumRoute);
 app.use('/api/logs', authMiddleware, logsRoute);
 app.use('/api/gpt', authMiddleware, gptRoute);
-app.use('/api/premium-admin', authMiddleware, premiumAdminRoute);
 app.use('/api/bot-status', authMiddleware, botStatusRoute);
+app.use('/api/commands', authMiddleware, commandsRoute);
+app.use('/api/credits-settings', authMiddleware, creditsSettingsRoute);
 
 /* ================== HEALTH ================== */
 app.get('/health', (req, res) => {
-  res.json({
-    status: 'OK',
-    service: 'AVON Dashboard'
-  });
+  res.json({ status: 'OK', service: 'AVON Dashboard' });
 });
 
 /* ================== ERROR ================== */
 app.use((err, req, res, next) => {
-  console.error('DASHBOARD ERROR:', err);
-  res.status(500).json({
-    error: 'Internal Server Error'
-  });
+  console.error('Dashboard Error:', err);
+  res.status(500).json({ error: 'Internal Server Error' });
 });
 
 module.exports = app;
