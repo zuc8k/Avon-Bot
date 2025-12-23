@@ -33,7 +33,7 @@ function renderLogin() {
   `;
 }
 
-/* ================== GUILDS ================== */
+/* ================== GUILD SELECT ================== */
 async function loadGuilds() {
   const me = await getMe();
   if (!me) return renderLogin();
@@ -67,6 +67,7 @@ function renderLayout() {
           <li onclick="loadPremium()">Premium</li>
           <li onclick="loadLogs()">Logs</li>
           <li onclick="loadGPT()">GPT</li>
+          <li onclick="loadBotStatus()">Bot Status</li>
           <li onclick="clearGuild()">Change Server</li>
         </ul>
         <a href="/auth/logout" class="logout-btn">Logout</a>
@@ -118,49 +119,18 @@ async function loadCredits() {
   `;
 }
 
-/* ================== PREMIUM PAGE ================== */
 async function loadPremium() {
   const guildId = getGuild();
   const r = await fetch(`/api/premium?guildId=${guildId}`);
   const d = await r.json();
 
   document.getElementById('view').innerHTML = `
-    <h2>Membership Plans</h2>
-
-    <div class="grid">
-      ${renderPlan('Plus', '5$', 'Lower tax & more GPT', 'plus', d.plan)}
-      ${renderPlan('Premium', '20$', 'No tax & high limits', 'premium', d.plan)}
-      ${renderPlan('Max', '50$', 'Unlimited power', 'max', d.plan)}
-    </div>
-
-    <p style="margin-top:20px;color:#aaa">
-      Current Plan: <b>${d.plan}</b>
-    </p>
+    <h2>Premium</h2>
+    <p>Plan: ${d.plan}</p>
+    <p>Status: ${d.active ? 'Active' : 'Inactive'}</p>
   `;
 }
 
-function renderPlan(name, price, desc, key, current) {
-  const active = current === key;
-  return `
-    <div class="card">
-      <h3>${name}</h3>
-      <p>${desc}</p>
-      <h2>${price}</h2>
-      ${active
-        ? `<p style="color:#4caf50">Active</p>`
-        : `<button onclick="requestPlan('${key}')">Request</button>`
-      }
-    </div>
-  `;
-}
-
-function requestPlan(plan) {
-  alert(
-    `Request sent for ${plan} plan.\nAdmin will activate it for you.`
-  );
-}
-
-/* ================== LOGS ================== */
 async function loadLogs() {
   const guildId = getGuild();
   const r = await fetch(`/api/logs?guildId=${guildId}`);
@@ -174,7 +144,6 @@ async function loadLogs() {
   `;
 }
 
-/* ================== GPT ================== */
 async function loadGPT() {
   const guildId = getGuild();
   const r = await fetch(`/api/gpt?guildId=${guildId}`);
@@ -185,6 +154,29 @@ async function loadGPT() {
     <p>Used: ${d.used}</p>
     <p>Limit: ${d.limit}</p>
     <p>Remaining: ${d.remaining}</p>
+  `;
+}
+
+/* ================== BOT STATUS ================== */
+async function loadBotStatus() {
+  const r = await fetch('/api/bot-status');
+  const d = await r.json();
+
+  if (!d.online) {
+    document.getElementById('view').innerHTML = `
+      <h2>Bot Status</h2>
+      <p style="color:red">Bot is Offline</p>
+    `;
+    return;
+  }
+
+  document.getElementById('view').innerHTML = `
+    <h2>Bot Status</h2>
+    <p><b>Status:</b> <span style="color:#4caf50">Online</span></p>
+    <p><b>Bot:</b> ${d.username}</p>
+    <p><b>Ping:</b> ${d.ping} ms</p>
+    <p><b>Servers:</b> ${d.guilds}</p>
+    <p><b>Commands:</b> ${d.commands}</p>
   `;
 }
 
