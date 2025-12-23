@@ -1,49 +1,165 @@
-body {
-  margin: 0;
-  font-family: Arial, sans-serif;
-  background: #0e0e11;
-  color: #fff;
+/* ========== RESET ========== */
+* {
+  box-sizing: border-box;
 }
 
+body {
+  margin: 0;
+  font-family: "Segoe UI", Tahoma, sans-serif;
+  background: #0e0e11;
+  color: #ffffff;
+}
+
+/* ========== LINKS ========== */
+a {
+  color: #b7faff;
+  text-decoration: none;
+}
+
+a:hover {
+  opacity: 0.85;
+}
+
+/* ========== LOGIN PAGE ========== */
+.login-page {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.login-page h1 {
+  font-size: 32px;
+  margin-bottom: 10px;
+}
+
+.login-page p {
+  color: #aaa;
+  margin-bottom: 20px;
+}
+
+.discord-btn {
+  background: #5865f2;
+  color: #fff;
+  padding: 14px 26px;
+  border-radius: 10px;
+  font-weight: bold;
+  font-size: 16px;
+}
+
+/* ========== HEADER ========== */
+.header {
+  padding: 25px 30px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.header h2 {
+  margin: 0;
+}
+
+/* ========== GRID (SERVER SELECT) ========== */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 20px;
+  padding: 30px;
+}
+
+.card {
+  background: #16161e;
+  border-radius: 14px;
+  padding: 22px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.card:hover {
+  background: #1f1f2a;
+  transform: translateY(-3px);
+}
+
+.card h3 {
+  margin: 0 0 6px;
+}
+
+.card p {
+  font-size: 13px;
+  color: #aaa;
+}
+
+/* ========== DASHBOARD LAYOUT ========== */
 .layout {
   display: flex;
   height: 100vh;
 }
 
+/* ========== SIDEBAR ========== */
 .sidebar {
-  width: 220px;
+  width: 240px;
   background: #14141a;
-  padding: 20px;
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
 }
 
 .sidebar h2 {
   color: #b7faff;
+  margin-bottom: 20px;
 }
 
 .sidebar ul {
   list-style: none;
   padding: 0;
+  margin: 0;
+  flex: 1;
 }
 
 .sidebar li {
   padding: 12px;
+  border-radius: 8px;
   cursor: pointer;
-  border-radius: 6px;
+  margin-bottom: 6px;
+  transition: 0.2s;
 }
 
 .sidebar li:hover {
   background: #1f1f2a;
 }
 
+.logout-btn {
+  text-align: center;
+  margin-top: 10px;
+  padding: 10px;
+  background: #1f1f2a;
+  border-radius: 8px;
+}
+
+/* ========== CONTENT ========== */
 .content {
   flex: 1;
-  padding: 20px;
+  padding: 30px;
   overflow-y: auto;
 }
 
-.card {
-  background: #1a1a22;
-  padding: 20px;
+/* ========== TITLES & TEXT ========== */
+h2 {
+  margin-top: 0;
+}
+
+p {
+  line-height: 1.6;
+}
+
+/* ========== SCROLLBAR ========== */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2a2a35;
   border-radius: 10px;
-  margin-bottom: 15px;
 }
