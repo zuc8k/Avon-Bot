@@ -52,18 +52,18 @@ module.exports = {
         errors: ['time']
       });
 
-      const { tax, received } = await transferCredits(
-        guild.id,
-        user.id,
-        target.id,
-        amount
-      );
+    
+const { tax, received, plan } = await transferCredits(
+  guild.id,
+  user.id,
+  target.id,
+  amount
+);
 
-      await interaction.followUp(
-        `✅ **Transfer Successful**\n💸 Sent: ${amount}\n🧾 Tax: ${tax}\n📥 ${target} received: ${received}`
-      );
-    } catch {
-      interaction.followUp('❌ Transfer canceled or wrong captcha');
-    }
-  }
-};
+await interaction.followUp(
+  `✅ **Transfer Successful**
+👤 Plan: **${plan.toUpperCase()}**
+💸 Sent: ${amount}
+🧾 Tax: ${tax}
+📥 ${target} received: ${received}`
+);
