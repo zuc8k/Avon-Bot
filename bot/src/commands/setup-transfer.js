@@ -1,5 +1,5 @@
 const { SlashCommandBuilder } = require('discord.js');
-let transferChannel = {}; // مؤقت – بعدين نخزنه في DB
+const GuildSettings = require('../models/GuildSettings');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -12,16 +12,24 @@ module.exports = {
     ),
 
   async execute(interaction) {
-    transferChannel[interaction.guild.id] =
-      interaction.options.getChannel('channel').id;
+    if (interaction.guild.ownerId !== interaction.user.id) {
+      return interaction.reply({
+        content: '❌ Owner only',
+        ephemeral: true
+      });
+    }
+
+    const channel = interaction.options.getChannel('channel');
+
+    await GuildSettings.findOneAndUpdate(
+      { guildId: interaction.guild.id },
+      { transferChannelId: channel.id },
+      { upsert: true }
+    );
 
     interaction.reply({
-      content: '✅ Transfer channel set successfully',
+      content: `✅ Transfer channel set to ${channel}`,
       ephemeral: true
     });
-  },
-
-  getChannel(guildId) {
-    return transferChannel[guildId];
   }
 };
