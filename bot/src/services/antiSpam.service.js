@@ -17,7 +17,7 @@ async function canTransfer(userId, guildId) {
   const data = spamMap.get(userId);
   const settings = await getSettings(guildId);
 
-  // 🔒 محظور
+  // 🔒 Blocked
   if (data?.blockedUntil && data.blockedUntil > now) {
     return {
       allowed: false,
@@ -28,7 +28,7 @@ async function canTransfer(userId, guildId) {
     };
   }
 
-  // ⏱️ كول داون
+  // ⏱️ Cooldown
   if (
     data?.lastTransfer &&
     now - data.lastTransfer < settings.cooldownSeconds * 1000
@@ -59,7 +59,6 @@ async function recordFail(userId, guildId) {
 
   data.fails++;
 
-  // 🚫 تعدى الحد
   if (data.fails >= settings.maxFails) {
     data.blockedUntil = now + settings.blockMinutes * 60 * 1000;
     data.fails = 0;
