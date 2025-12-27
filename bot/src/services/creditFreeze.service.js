@@ -1,39 +1,47 @@
 const CreditFreeze = require('../models/CreditFreeze');
-const FreezeLog = require('../models/FreezeLog');
 
 /* ================== CHECK ================== */
 async function isFrozen(userId, guildId) {
-  const f = await CreditFreeze.findOne({ userId, guildId });
-  return f;
+  const freeze = await CreditFreeze.findOne({ userId, guildId });
+  if (!freeze) return false;
+
+  // 🕒 فريز مؤقت وانتهى
+  if (freeze.expiresAt && freeze.expiresAt <= new Date()) {
+    await CreditFreeze.deleteOne({ userId, guildId });
+    return false;
+  }
+
+  return true;
 }
 
 /* ================== FREEZE ================== */
-async function freezeUser({ userId, guildId, reason, frozenBy }) {
+async function freezeUser({
+  userId,
+  guildId,
+  reason,
+  frozenBy,
+  durationMinutes
+}) {
+  let expiresAt = null;
+
+  if (durationMinutes && durationMinutes > 0) {
+    expiresAt = new Date(Date.now() + durationMinutes * 60 * 1000);
+  }
+
   await CreditFreeze.findOneAndUpdate(
     { userId, guildId },
-    { reason, frozenBy },
-    { upsert: true }
+    {
+      reason,
+      frozenBy,
+      expiresAt
+    },
+    { upsert: true, new: true }
   );
-
-  await FreezeLog.create({
-    userId,
-    guildId,
-    action: 'freeze',
-    reason,
-    by: frozenBy
-  });
 }
 
 /* ================== UNFREEZE ================== */
-async function unfreezeUser(userId, guildId, by) {
+async function unfreezeUser(userId, guildId) {
   await CreditFreeze.deleteOne({ userId, guildId });
-
-  await FreezeLog.create({
-    userId,
-    guildId,
-    action: 'unfreeze',
-    by
-  });
 }
 
 /* ================== LIST ================== */
@@ -41,15 +49,9 @@ async function getFrozenUsers(guildId) {
   return CreditFreeze.find({ guildId }).sort({ createdAt: -1 });
 }
 
-/* ================== LOGS ================== */
-async function getFreezeLogs(guildId) {
-  return FreezeLog.find({ guildId }).sort({ createdAt: -1 }).limit(50);
-}
-
 module.exports = {
   isFrozen,
   freezeUser,
   unfreezeUser,
-  getFrozenUsers,
-  getFreezeLogs
+  getFrozenUsers
 };
