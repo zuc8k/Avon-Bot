@@ -18,7 +18,8 @@ const botStatusRoute = require('./routes/bot-status');
 const commandsRoute = require('./routes/commands');
 const creditsSettingsRoute = require('./routes/credits-settings');
 const taxCalculatorRoute = require('./routes/tax-calculator');
-const unblockRoute = require('./routes/unblock'); // ✅ NEW
+const unblockRoute = require('./routes/unblock');
+const creditFreezeRoute = require('./routes/credit-freeze'); // ✅ NEW
 
 const app = express();
 
@@ -52,7 +53,8 @@ app.use('/api/bot-status', authMiddleware, botStatusRoute);
 app.use('/api/commands', authMiddleware, commandsRoute);
 app.use('/api/credits-settings', authMiddleware, creditsSettingsRoute);
 app.use('/api/tax-calculator', authMiddleware, taxCalculatorRoute);
-app.use('/api/unblock', authMiddleware, unblockRoute); // ✅ NEW
+app.use('/api/unblock', authMiddleware, unblockRoute);
+app.use('/api/credit-freeze', authMiddleware, creditFreezeRoute); // ✅ NEW
 
 /* ================== HEALTH ================== */
 app.get('/health', (req, res) => {
