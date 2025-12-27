@@ -16,7 +16,7 @@ const {
 } = require('../services/antiSpam.service');
 
 const {
-  isFrozen
+  getFreezeInfo
 } = require('../services/creditFreeze.service');
 
 const activeCaptcha = new Map();
@@ -26,14 +26,10 @@ module.exports = {
     .setName('c')
     .setDescription('Transfer credits to another user')
     .addUserOption(opt =>
-      opt.setName('user')
-        .setDescription('Target user')
-        .setRequired(true)
+      opt.setName('user').setRequired(true)
     )
     .addIntegerOption(opt =>
-      opt.setName('amount')
-        .setDescription('Amount to transfer')
-        .setRequired(true)
+      opt.setName('amount').setRequired(true)
     ),
 
   async execute(interaction) {
@@ -43,26 +39,23 @@ module.exports = {
     const guildId = interaction.guildId;
     const channelId = interaction.channelId;
 
-    /* ================== FREEZE CHECK (SENDER) ================== */
-    const senderFrozen = await isFrozen(fromId, guildId);
-    if (senderFrozen) {
+    /* ================== FREEZE CHECK ================== */
+    const senderFreeze = await getFreezeInfo(fromId, guildId);
+    if (senderFreeze) {
       return interaction.reply({
         content:
           `🧊 **Your credits are frozen**\n` +
-          `Reason: ${senderFrozen.reason || 'No reason provided'}`,
+          `Reason: ${senderFreeze.reason}`,
         ephemeral: true
       });
     }
 
-    /* ================== FREEZE CHECK (RECEIVER) ================== */
-    if (toUser) {
-      const receiverFrozen = await isFrozen(toUser.id, guildId);
-      if (receiverFrozen) {
-        return interaction.reply({
-          content: '🧊 This user credits are frozen. Transfer blocked.',
-          ephemeral: true
-        });
-      }
+    const receiverFreeze = await getFreezeInfo(toUser.id, guildId);
+    if (receiverFreeze) {
+      return interaction.reply({
+        content: '🧊 Receiver credits are frozen.',
+        ephemeral: true
+      });
     }
 
     /* ================== ANTI SPAM ================== */
@@ -87,7 +80,7 @@ module.exports = {
     const settings = await CreditSettings.findOne({ guildId });
     if (!settings || settings.transferChannelId !== channelId) {
       return interaction.reply({
-        content: '❌ Credit transfers are only allowed in the configured transfer channel.',
+        content: '❌ Transfers only allowed in transfer channel.',
         ephemeral: true
       });
     }
@@ -96,7 +89,7 @@ module.exports = {
     if (toUser.bot || toUser.id === fromId || amount <= 0) {
       await recordFail(fromId, guildId);
       return interaction.reply({
-        content: '❌ Invalid transfer request.',
+        content: '❌ Invalid transfer.',
         ephemeral: true
       });
     }
@@ -113,26 +106,23 @@ module.exports = {
     });
 
     const embed = new EmbedBuilder()
-      .setTitle('🔐 Credit Transfer Verification')
+      .setTitle('🔐 Transfer Verification')
       .setDescription(
-        `You are about to transfer **${amount} credits** to **${toUser.username}**\n\n` +
-        `Type this code to confirm:\n\n` +
-        `**\`${captcha}\`**`
+        `Transfer **${amount} credits** to **${toUser.username}**\n\n` +
+        `Code:\n**\`${captcha}\`**`
       )
-      .setColor('#b7faff')
-      .setFooter({ text: '3 attempts • 60 seconds' });
+      .setColor('#b7faff');
 
     await interaction.reply({ embeds: [embed], ephemeral: true });
 
-    const filter = m => m.author.id === fromId;
     const collector = interaction.channel.createMessageCollector({
-      filter,
+      filter: m => m.author.id === fromId,
       time: 60000
     });
 
     collector.on('collect', async msg => {
       const data = activeCaptcha.get(fromId);
-      if (!data) return collector.stop();
+      if (!data) return;
 
       if (msg.content === data.captcha) {
         try {
@@ -146,9 +136,7 @@ module.exports = {
           await recordSuccess(fromId);
 
           await msg.reply(
-            `✅ **Transfer Successful**\n` +
-            `Tax: **${result.tax}**\n` +
-            `Received: **${result.received}**`
+            `✅ Done\nTax: **${result.tax}**\nReceived: **${result.received}**`
           );
 
           await sendCreditLog(client, {
@@ -160,8 +148,7 @@ module.exports = {
             received: result.received
           });
 
-        } catch (err) {
-          console.error(err);
+        } catch {
           await msg.reply('❌ Transfer failed.');
         }
 
@@ -181,17 +168,15 @@ module.exports = {
         }
 
         if (data.tries >= 3) {
-          await msg.reply('🚫 Too many wrong attempts. Transfer cancelled.');
+          await msg.reply('🚫 Cancelled.');
           activeCaptcha.delete(fromId);
           collector.stop();
         } else {
-          await msg.reply('❌ Wrong code. Try again.');
+          await msg.reply('❌ Wrong code.');
         }
       }
     });
 
-    collector.on('end', () => {
-      activeCaptcha.delete(fromId);
-    });
+    collector.on('end', () => activeCaptcha.delete(fromId));
   }
 };
