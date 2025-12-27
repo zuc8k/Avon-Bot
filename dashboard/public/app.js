@@ -67,6 +67,7 @@ function renderLayout() {
           <li onclick="loadCreditSettings()">Credit Settings</li>
           <li onclick="loadCreditLogs()">Credit Logs</li>
           <li onclick="loadTaxCalculator()">Tax Calculator</li>
+          <li onclick="loadFreezePage()">Freeze Accounts</li>
           <li onclick="clearGuild()">Change Server</li>
         </ul>
       </aside>
@@ -105,92 +106,8 @@ async function loadOverview() {
   `;
 }
 
-/* ================== CREDITS ================== */
-async function loadCredits() {
-  const guildId = getGuild();
-  const r = await fetch(`/api/credits?guildId=${guildId}`);
-  const d = await r.json();
-
-  document.getElementById('view').innerHTML = `
-    <h2>Credits</h2>
-    <p>Balance: ${d.balance}</p>
-  `;
-}
-
-/* ================== PREMIUM ================== */
-async function loadPremium() {
-  const guildId = getGuild();
-  const r = await fetch(`/api/premium?guildId=${guildId}`);
-  const d = await r.json();
-
-  document.getElementById('view').innerHTML = `
-    <h2>Premium</h2>
-    <p>Plan: ${d.plan}</p>
-    <p>Status: ${d.active ? 'Active' : 'Inactive'}</p>
-  `;
-}
-
-/* ================== BOT STATUS ================== */
-async function loadBotStatus() {
-  const r = await fetch('/api/bot-status');
-  const d = await r.json();
-
-  if (!d.online) {
-    document.getElementById('view').innerHTML = `
-      <h2>Bot Status</h2>
-      <p style="color:red">Bot is Offline</p>
-    `;
-    return;
-  }
-
-  document.getElementById('view').innerHTML = `
-    <h2>Bot Status</h2>
-    <p><b>Status:</b> <span style="color:#4caf50">Online</span></p>
-    <p><b>Bot:</b> ${d.username}</p>
-    <p><b>Ping:</b> ${d.ping} ms</p>
-    <p><b>Servers:</b> ${d.guilds}</p>
-    <p><b>Commands:</b> ${d.commands}</p>
-  `;
-}
-
-/* ================== COMMANDS ================== */
-async function loadCommands() {
-  const guildId = getGuild();
-  const r = await fetch(`/api/commands?guildId=${guildId}`);
-  const list = await r.json();
-
-  const all = ['ping','credits','premium','gpt','help','c'];
-
-  const map = {};
-  list.forEach(x => map[x.command] = x.enabled);
-
-  document.getElementById('view').innerHTML = `
-    <h2>Commands Control</h2>
-    ${all.map(cmd => `
-      <div class="card">
-        <b>/${cmd}</b>
-        <label style="float:right">
-          <input type="checkbox"
-            ${map[cmd] !== false ? 'checked' : ''}
-            onchange="toggleCommand('${cmd}', this.checked)"
-          />
-        </label>
-      </div>
-    `).join('')}
-  `;
-}
-
-async function toggleCommand(command, enabled) {
-  const guildId = getGuild();
-  await fetch('/api/commands/toggle', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ guildId, command, enabled })
-  });
-}
-
-/* ================== CREDIT SETTINGS ================== */
-async function loadCreditSettings() {
+/* ================== FREEZE PAGE ================== */
+async function loadFreezePage() {
   const guildId = getGuild();
 
   const meRes = await fetch(`/api/me?guildId=${guildId}`);
@@ -198,102 +115,53 @@ async function loadCreditSettings() {
 
   if (!['owner', 'admin'].includes(me.role)) {
     document.getElementById('view').innerHTML =
-      '<h2>Credit Settings</h2><p>Permission denied</p>';
+      '<h2>Freeze Accounts</h2><p>❌ Permission denied</p>';
     return;
   }
 
-  const r = await fetch(`/api/credits-settings?guildId=${guildId}`);
-  const d = await r.json();
+  const r = await fetch(`/api/credit-freeze?guildId=${guildId}`);
+  const list = await r.json();
 
-  document.getElementById('view').innerHTML = `
-    <h2>Credit Transfer Channel</h2>
-    <input id="channelId" value="${d.transferChannelId || ''}" />
-    <br/><br/>
-    <button onclick="saveCreditChannel()">Save</button>
-  `;
-}
-
-async function saveCreditChannel() {
-  const guildId = getGuild();
-  const channelId = document.getElementById('channelId').value;
-
-  await fetch('/api/credits-settings', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ guildId, channelId })
-  });
-
-  alert('Saved successfully');
-}
-
-/* ================== CREDIT LOGS ================== */
-async function loadCreditLogs() {
-  const guildId = getGuild();
-  const r = await fetch(`/api/credit-logs?guildId=${guildId}`);
-
-  if (r.status === 403) {
-    document.getElementById('view').innerHTML =
-      '<h2>Credit Logs</h2><p>Permission denied</p>';
+  if (!list.length) {
+    document.getElementById('view').innerHTML = `
+      <h2>Freeze Accounts</h2>
+      <p>✅ No frozen accounts</p>
+    `;
     return;
   }
 
-  const logs = await r.json();
-
   document.getElementById('view').innerHTML = `
-    <h2>Credit Logs</h2>
-    ${logs.map(l => `
+    <h2>Freeze Accounts</h2>
+
+    ${list.map(f => `
       <div class="card">
-        <p><b>From:</b> ${l.from}</p>
-        <p><b>To:</b> ${l.to}</p>
-        <p><b>Amount:</b> ${l.amount}</p>
-        <p><b>Tax:</b> ${l.tax}</p>
-        <p><b>Received:</b> ${l.received}</p>
-        <small>${new Date(l.createdAt).toLocaleString()}</small>
+        <p><b>User ID:</b> ${f.userId}</p>
+        <p><b>Reason:</b> ${f.reason}</p>
+        <p><b>Frozen By:</b> ${f.frozenBy}</p>
+        <p><b>Since:</b> ${new Date(f.createdAt).toLocaleString()}</p>
+
+        <button onclick="unfreezeUser('${f.userId}')">
+          ❄️ UnFreeze
+        </button>
       </div>
     `).join('')}
   `;
 }
 
-/* ================== TAX CALCULATOR ================== */
-function loadTaxCalculator() {
-  document.getElementById('view').innerHTML = `
-    <h2>Tax Calculator</h2>
+/* ================== UNFREEZE ================== */
+async function unfreezeUser(userId) {
+  const guildId = getGuild();
 
-    <input id="taxAmount" type="number" placeholder="Amount" />
-    <select id="taxPlan">
-      <option value="free">Free (5%)</option>
-      <option value="plus">Plus (3%)</option>
-      <option value="premium">Premium (0%)</option>
-      <option value="max">Max (0%)</option>
-    </select>
+  if (!confirm('Are you sure you want to unfreeze this user?')) return;
 
-    <br/><br/>
-    <button onclick="calculateTax()">Calculate</button>
-
-    <div id="taxResult" style="margin-top:20px"></div>
-  `;
-}
-
-async function calculateTax() {
-  const amount = Number(document.getElementById('taxAmount').value);
-  const plan = document.getElementById('taxPlan').value;
-
-  const r = await fetch('/api/tax-calculator', {
+  await fetch('/api/credit-freeze/unfreeze', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ amount, plan })
+    body: JSON.stringify({ guildId, userId })
   });
 
-  const d = await r.json();
-
-  document.getElementById('taxResult').innerHTML = `
-    <div class="card">
-      <p><b>Tax:</b> ${d.tax}</p>
-      <p><b>Received:</b> ${d.received}</p>
-      <p><b>Rate:</b> ${d.rate}%</p>
-      <p><b>Send:</b> ${d.requiredAmount}</p>
-    </div>
-  `;
+  alert('✅ User Unfrozen');
+  loadFreezePage();
 }
 
 /* ================== INIT ================== */
