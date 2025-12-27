@@ -1,30 +1,29 @@
 const AntiSpamSettings = require('../models/AntiSpamSettings');
-const BlockedUser = require('../models/BlockedUser');
 
 const spamMap = new Map();
 
 /* ================== SETTINGS ================== */
 async function getSettings(guildId) {
   let s = await AntiSpamSettings.findOne({ guildId });
-  if (!s) s = await AntiSpamSettings.create({ guildId });
+  if (!s) {
+    s = await AntiSpamSettings.create({ guildId });
+  }
   return s;
 }
 
 /* ================== CHECK ================== */
 async function canTransfer(userId, guildId) {
   const now = Date.now();
+  const data = spamMap.get(userId);
+  const settings = await getSettings(guildId);
 
-  const dbBlock = await BlockedUser.findOne({ userId, guildId });
-  if (dbBlock && dbBlock.blockedUntil > now) {
+  if (data?.blockedUntil && data.blockedUntil > now) {
     return {
       allowed: false,
-      reason: `🚫 You are blocked until ${dbBlock.blockedUntil.toLocaleString()}`,
+      reason: `🚫 Blocked for ${Math.ceil((data.blockedUntil - now) / 1000)}s`,
       alert: true
     };
   }
-
-  const data = spamMap.get(userId);
-  const settings = await getSettings(guildId);
 
   if (
     data?.lastTransfer &&
@@ -32,7 +31,7 @@ async function canTransfer(userId, guildId) {
   ) {
     return {
       allowed: false,
-      reason: `⏱️ Please wait ${settings.cooldownSeconds} seconds`,
+      reason: `⏱️ Wait ${settings.cooldownSeconds}s between transfers`,
       alert: false
     };
   }
@@ -42,47 +41,37 @@ async function canTransfer(userId, guildId) {
 
 /* ================== SUCCESS ================== */
 async function recordSuccess(userId) {
-  spamMap.set(userId, { lastTransfer: Date.now(), fails: 0 });
+  spamMap.set(userId, {
+    lastTransfer: Date.now(),
+    fails: 0
+  });
 }
 
 /* ================== FAIL ================== */
 async function recordFail(userId, guildId) {
   const now = Date.now();
-  const settings = await getSettings(guildId);
   const data = spamMap.get(userId) || { fails: 0 };
+  const settings = await getSettings(guildId);
 
   data.fails++;
 
   if (data.fails >= settings.maxFails) {
-    const until = new Date(now + settings.blockMinutes * 60 * 1000);
+    data.blockedUntil = now + settings.blockMinutes * 60 * 1000;
+    data.fails = 0;
 
-    await BlockedUser.findOneAndUpdate(
-      { userId, guildId },
-      {
-        blockedUntil: until,
-        reason: 'Exceeded spam limit'
-      },
-      { upsert: true }
-    );
-
-    spamMap.delete(userId);
-
-    return { blocked: true, reason: 'Auto block applied' };
+    spamMap.set(userId, data);
+    return {
+      blocked: true,
+      reason: 'Exceeded max failed attempts'
+    };
   }
 
   spamMap.set(userId, data);
   return { blocked: false };
 }
 
-/* ================== UNBLOCK ================== */
-async function unblockUser(userId, guildId) {
-  await BlockedUser.deleteOne({ userId, guildId });
-  spamMap.delete(userId);
-}
-
 module.exports = {
   canTransfer,
   recordSuccess,
-  recordFail,
-  unblockUser
+  recordFail
 };
