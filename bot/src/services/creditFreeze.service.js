@@ -1,57 +1,77 @@
-const CreditFreeze = require('../models/CreditFreeze');
+const AntiSpamSettings = require('../models/AntiSpamSettings');
+
+const spamMap = new Map();
+
+/* ================== SETTINGS ================== */
+async function getSettings(guildId) {
+  let s = await AntiSpamSettings.findOne({ guildId });
+  if (!s) {
+    s = await AntiSpamSettings.create({ guildId });
+  }
+  return s;
+}
 
 /* ================== CHECK ================== */
-async function isFrozen(userId, guildId) {
-  const freeze = await CreditFreeze.findOne({ userId, guildId });
-  if (!freeze) return false;
+async function canTransfer(userId, guildId) {
+  const now = Date.now();
+  const data = spamMap.get(userId);
+  const settings = await getSettings(guildId);
 
-  // 🕒 فريز مؤقت وانتهى
-  if (freeze.expiresAt && freeze.expiresAt <= new Date()) {
-    await CreditFreeze.deleteOne({ userId, guildId });
-    return false;
+  if (data?.blockedUntil && data.blockedUntil > now) {
+    return {
+      allowed: false,
+      reason: `🚫 Blocked for ${Math.ceil((data.blockedUntil - now) / 1000)}s`,
+      alert: true
+    };
   }
 
-  return true;
-}
-
-/* ================== FREEZE ================== */
-async function freezeUser({
-  userId,
-  guildId,
-  reason,
-  frozenBy,
-  durationMinutes
-}) {
-  let expiresAt = null;
-
-  if (durationMinutes && durationMinutes > 0) {
-    expiresAt = new Date(Date.now() + durationMinutes * 60 * 1000);
+  if (
+    data?.lastTransfer &&
+    now - data.lastTransfer < settings.cooldownSeconds * 1000
+  ) {
+    return {
+      allowed: false,
+      reason: `⏱️ Wait ${settings.cooldownSeconds}s between transfers`,
+      alert: false
+    };
   }
 
-  await CreditFreeze.findOneAndUpdate(
-    { userId, guildId },
-    {
-      reason,
-      frozenBy,
-      expiresAt
-    },
-    { upsert: true, new: true }
-  );
+  return { allowed: true };
 }
 
-/* ================== UNFREEZE ================== */
-async function unfreezeUser(userId, guildId) {
-  await CreditFreeze.deleteOne({ userId, guildId });
+/* ================== SUCCESS ================== */
+async function recordSuccess(userId) {
+  spamMap.set(userId, {
+    lastTransfer: Date.now(),
+    fails: 0
+  });
 }
 
-/* ================== LIST ================== */
-async function getFrozenUsers(guildId) {
-  return CreditFreeze.find({ guildId }).sort({ createdAt: -1 });
+/* ================== FAIL ================== */
+async function recordFail(userId, guildId) {
+  const now = Date.now();
+  const data = spamMap.get(userId) || { fails: 0 };
+  const settings = await getSettings(guildId);
+
+  data.fails++;
+
+  if (data.fails >= settings.maxFails) {
+    data.blockedUntil = now + settings.blockMinutes * 60 * 1000;
+    data.fails = 0;
+
+    spamMap.set(userId, data);
+    return {
+      blocked: true,
+      reason: 'Exceeded max failed attempts'
+    };
+  }
+
+  spamMap.set(userId, data);
+  return { blocked: false };
 }
 
 module.exports = {
-  isFrozen,
-  freezeUser,
-  unfreezeUser,
-  getFrozenUsers
+  canTransfer,
+  recordSuccess,
+  recordFail
 };
