@@ -1,10 +1,10 @@
 const CreditFreeze = require('../models/CreditFreeze');
-const CreditFreezeLog = require('../models/CreditFreezeLog');
+const FreezeLog = require('../models/FreezeLog');
 
 /* ================== CHECK ================== */
 async function isFrozen(userId, guildId) {
   const f = await CreditFreeze.findOne({ userId, guildId });
-  return !!f;
+  return f;
 }
 
 /* ================== FREEZE ================== */
@@ -15,9 +15,9 @@ async function freezeUser({ userId, guildId, reason, frozenBy }) {
     { upsert: true }
   );
 
-  await CreditFreezeLog.create({
-    guildId,
+  await FreezeLog.create({
     userId,
+    guildId,
     action: 'freeze',
     reason,
     by: frozenBy
@@ -28,9 +28,9 @@ async function freezeUser({ userId, guildId, reason, frozenBy }) {
 async function unfreezeUser(userId, guildId, by) {
   await CreditFreeze.deleteOne({ userId, guildId });
 
-  await CreditFreezeLog.create({
-    guildId,
+  await FreezeLog.create({
     userId,
+    guildId,
     action: 'unfreeze',
     by
   });
@@ -43,10 +43,7 @@ async function getFrozenUsers(guildId) {
 
 /* ================== LOGS ================== */
 async function getFreezeLogs(guildId) {
-  return CreditFreezeLog
-    .find({ guildId })
-    .sort({ createdAt: -1 })
-    .limit(50);
+  return FreezeLog.find({ guildId }).sort({ createdAt: -1 }).limit(50);
 }
 
 module.exports = {
