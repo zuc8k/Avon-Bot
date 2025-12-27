@@ -39,7 +39,7 @@ module.exports = {
     const channelId = interaction.channelId;
 
     /* ================== ANTI SPAM ================== */
-    const spam = canTransfer(fromId);
+    const spam = await canTransfer(fromId, guildId);
     if (!spam.allowed) {
       return interaction.reply({
         content: spam.reason,
@@ -58,7 +58,7 @@ module.exports = {
 
     /* ================== VALIDATION ================== */
     if (toUser.bot || toUser.id === fromId || amount <= 0) {
-      recordFail(fromId);
+      await recordFail(fromId, guildId);
       return interaction.reply({
         content: '❌ Invalid transfer request.',
         ephemeral: true
@@ -88,6 +88,7 @@ module.exports = {
 
     await interaction.reply({ embeds: [embed], ephemeral: true });
 
+    /* ================== COLLECTOR ================== */
     const filter = m => m.author.id === fromId;
     const collector = interaction.channel.createMessageCollector({
       filter,
@@ -107,10 +108,10 @@ module.exports = {
             data.amount
           );
 
-          recordSuccess(fromId);
+          await recordSuccess(fromId);
 
           await msg.reply(
-            `✅ Transfer Successful\n` +
+            `✅ **Transfer Successful**\n` +
             `Tax: **${result.tax}**\n` +
             `Received: **${result.received}**`
           );
@@ -126,7 +127,7 @@ module.exports = {
 
         } catch (err) {
           console.error(err);
-          recordFail(fromId);
+          await recordFail(fromId, guildId);
           await msg.reply('❌ Transfer failed.');
         }
 
@@ -134,7 +135,7 @@ module.exports = {
         collector.stop();
       } else {
         data.tries++;
-        recordFail(fromId);
+        await recordFail(fromId, guildId);
 
         if (data.tries >= 3) {
           await msg.reply('🚫 Too many wrong attempts. Transfer cancelled.');
