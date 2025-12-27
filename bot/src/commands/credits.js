@@ -8,6 +8,12 @@ const CreditSettings = require('../models/CreditSettings');
 const sendCreditLog = require('../utils/sendCreditLog');
 const client = require('../index');
 
+const {
+  canTransfer,
+  recordSuccess,
+  recordFail
+} = require('../services/antiSpam.service');
+
 const activeCaptcha = new Map();
 
 module.exports = {
@@ -32,9 +38,17 @@ module.exports = {
     const guildId = interaction.guildId;
     const channelId = interaction.channelId;
 
+    /* ================== ANTI SPAM ================== */
+    const spam = canTransfer(fromId);
+    if (!spam.allowed) {
+      return interaction.reply({
+        content: spam.reason,
+        ephemeral: true
+      });
+    }
+
     /* ================== CHANNEL CHECK ================== */
     const settings = await CreditSettings.findOne({ guildId });
-
     if (!settings || settings.transferChannelId !== channelId) {
       return interaction.reply({
         content: '❌ Credit transfers are only allowed in the configured transfer channel.',
@@ -43,23 +57,10 @@ module.exports = {
     }
 
     /* ================== VALIDATION ================== */
-    if (toUser.bot) {
+    if (toUser.bot || toUser.id === fromId || amount <= 0) {
+      recordFail(fromId);
       return interaction.reply({
-        content: '❌ You cannot transfer credits to bots.',
-        ephemeral: true
-      });
-    }
-
-    if (toUser.id === fromId) {
-      return interaction.reply({
-        content: '❌ You cannot transfer credits to yourself.',
-        ephemeral: true
-      });
-    }
-
-    if (amount <= 0) {
-      return interaction.reply({
-        content: '❌ Invalid amount.',
+        content: '❌ Invalid transfer request.',
         ephemeral: true
       });
     }
@@ -79,18 +80,14 @@ module.exports = {
       .setTitle('🔐 Credit Transfer Verification')
       .setDescription(
         `You are about to transfer **${amount} credits** to **${toUser.username}**\n\n` +
-        `Please type the following code to confirm:\n\n` +
+        `Type this code to confirm:\n\n` +
         `**\`${captcha}\`**`
       )
       .setColor('#b7faff')
-      .setFooter({ text: 'You have 3 attempts • 60 seconds' });
+      .setFooter({ text: '3 attempts • 60 seconds' });
 
-    await interaction.reply({
-      embeds: [embed],
-      ephemeral: true
-    });
+    await interaction.reply({ embeds: [embed], ephemeral: true });
 
-    /* ================== COLLECTOR ================== */
     const filter = m => m.author.id === fromId;
     const collector = interaction.channel.createMessageCollector({
       filter,
@@ -110,13 +107,14 @@ module.exports = {
             data.amount
           );
 
+          recordSuccess(fromId);
+
           await msg.reply(
-            `✅ **Transfer Successful**\n` +
+            `✅ Transfer Successful\n` +
             `Tax: **${result.tax}**\n` +
             `Received: **${result.received}**`
           );
 
-          /* ================== SEND LOG ================== */
           await sendCreditLog(client, {
             guildId,
             from: fromId,
@@ -128,16 +126,18 @@ module.exports = {
 
         } catch (err) {
           console.error(err);
-          await msg.reply('❌ Transfer failed. Please try again later.');
+          recordFail(fromId);
+          await msg.reply('❌ Transfer failed.');
         }
 
         activeCaptcha.delete(fromId);
         collector.stop();
       } else {
         data.tries++;
+        recordFail(fromId);
 
         if (data.tries >= 3) {
-          await msg.reply('❌ Too many wrong attempts. Transfer cancelled.');
+          await msg.reply('🚫 Too many wrong attempts. Transfer cancelled.');
           activeCaptcha.delete(fromId);
           collector.stop();
         } else {
