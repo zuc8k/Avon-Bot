@@ -19,10 +19,13 @@ const creditFreezeSchema = new mongoose.Schema({
   },
   expiresAt: {
     type: Date,
-    default: null // لو null يبقى فريز دائم
+    default: null // null = تجميد دائم
   }
-}, { timestamps: true });
+}, {
+  timestamps: true
+});
 
+// منع تكرار تجميد نفس المستخدم في نفس السيرفر
 creditFreezeSchema.index(
   { userId: 1, guildId: 1 },
   { unique: true }
