@@ -43,19 +43,26 @@ module.exports = {
     const guildId = interaction.guildId;
     const channelId = interaction.channelId;
 
-    /* ================== FREEZE CHECK ================== */
-    if (await isFrozen(fromId, guildId)) {
+    /* ================== FREEZE CHECK (SENDER) ================== */
+    const senderFrozen = await isFrozen(fromId, guildId);
+    if (senderFrozen) {
       return interaction.reply({
-        content: '🧊 Your credits are frozen. You cannot make transfers.',
+        content:
+          `🧊 **Your credits are frozen**\n` +
+          `Reason: ${senderFrozen.reason || 'No reason provided'}`,
         ephemeral: true
       });
     }
 
-    if (await isFrozen(toUser.id, guildId)) {
-      return interaction.reply({
-        content: '🧊 This user credits are frozen. Transfer blocked.',
-        ephemeral: true
-      });
+    /* ================== FREEZE CHECK (RECEIVER) ================== */
+    if (toUser) {
+      const receiverFrozen = await isFrozen(toUser.id, guildId);
+      if (receiverFrozen) {
+        return interaction.reply({
+          content: '🧊 This user credits are frozen. Transfer blocked.',
+          ephemeral: true
+        });
+      }
     }
 
     /* ================== ANTI SPAM ================== */
@@ -112,7 +119,8 @@ module.exports = {
         `Type this code to confirm:\n\n` +
         `**\`${captcha}\`**`
       )
-      .setColor('#b7faff');
+      .setColor('#b7faff')
+      .setFooter({ text: '3 attempts • 60 seconds' });
 
     await interaction.reply({ embeds: [embed], ephemeral: true });
 
@@ -138,7 +146,9 @@ module.exports = {
           await recordSuccess(fromId);
 
           await msg.reply(
-            `✅ Transfer Successful\nTax: **${result.tax}**\nReceived: **${result.received}**`
+            `✅ **Transfer Successful**\n` +
+            `Tax: **${result.tax}**\n` +
+            `Received: **${result.received}**`
           );
 
           await sendCreditLog(client, {
