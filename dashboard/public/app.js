@@ -66,6 +66,7 @@ function renderLayout() {
           <li onclick="loadCommands()">Commands</li>
           <li onclick="loadCreditSettings()">Credit Settings</li>
           <li onclick="loadCreditLogs()">Credit Logs</li>
+          <li onclick="loadTaxCalculator()">Tax Calculator</li>
           <li onclick="clearGuild()">Change Server</li>
         </ul>
       </aside>
@@ -152,6 +153,42 @@ async function loadBotStatus() {
   `;
 }
 
+/* ================== COMMANDS ================== */
+async function loadCommands() {
+  const guildId = getGuild();
+  const r = await fetch(`/api/commands?guildId=${guildId}`);
+  const list = await r.json();
+
+  const all = ['ping','credits','premium','gpt','help','c'];
+
+  const map = {};
+  list.forEach(x => map[x.command] = x.enabled);
+
+  document.getElementById('view').innerHTML = `
+    <h2>Commands Control</h2>
+    ${all.map(cmd => `
+      <div class="card">
+        <b>/${cmd}</b>
+        <label style="float:right">
+          <input type="checkbox"
+            ${map[cmd] !== false ? 'checked' : ''}
+            onchange="toggleCommand('${cmd}', this.checked)"
+          />
+        </label>
+      </div>
+    `).join('')}
+  `;
+}
+
+async function toggleCommand(command, enabled) {
+  const guildId = getGuild();
+  await fetch('/api/commands/toggle', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ guildId, command, enabled })
+  });
+}
+
 /* ================== CREDIT SETTINGS ================== */
 async function loadCreditSettings() {
   const guildId = getGuild();
@@ -170,7 +207,6 @@ async function loadCreditSettings() {
 
   document.getElementById('view').innerHTML = `
     <h2>Credit Transfer Channel</h2>
-    <p>Current Channel ID:</p>
     <input id="channelId" value="${d.transferChannelId || ''}" />
     <br/><br/>
     <button onclick="saveCreditChannel()">Save</button>
@@ -215,6 +251,48 @@ async function loadCreditLogs() {
         <small>${new Date(l.createdAt).toLocaleString()}</small>
       </div>
     `).join('')}
+  `;
+}
+
+/* ================== TAX CALCULATOR ================== */
+function loadTaxCalculator() {
+  document.getElementById('view').innerHTML = `
+    <h2>Tax Calculator</h2>
+
+    <input id="taxAmount" type="number" placeholder="Amount" />
+    <select id="taxPlan">
+      <option value="free">Free (5%)</option>
+      <option value="plus">Plus (3%)</option>
+      <option value="premium">Premium (0%)</option>
+      <option value="max">Max (0%)</option>
+    </select>
+
+    <br/><br/>
+    <button onclick="calculateTax()">Calculate</button>
+
+    <div id="taxResult" style="margin-top:20px"></div>
+  `;
+}
+
+async function calculateTax() {
+  const amount = Number(document.getElementById('taxAmount').value);
+  const plan = document.getElementById('taxPlan').value;
+
+  const r = await fetch('/api/tax-calculator', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ amount, plan })
+  });
+
+  const d = await r.json();
+
+  document.getElementById('taxResult').innerHTML = `
+    <div class="card">
+      <p><b>Tax:</b> ${d.tax}</p>
+      <p><b>Received:</b> ${d.received}</p>
+      <p><b>Rate:</b> ${d.rate}%</p>
+      <p><b>Send:</b> ${d.requiredAmount}</p>
+    </div>
   `;
 }
 
