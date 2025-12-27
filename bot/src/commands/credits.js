@@ -6,6 +6,7 @@ const {
 const { transferCredits } = require('../services/credits.service');
 const CreditSettings = require('../models/CreditSettings');
 const sendCreditLog = require('../utils/sendCreditLog');
+const sendSpamAlert = require('../utils/sendSpamAlert');
 const client = require('../index');
 
 const {
@@ -41,8 +42,16 @@ module.exports = {
     /* ================== ANTI SPAM ================== */
     const spam = await canTransfer(fromId, guildId);
     if (!spam.allowed) {
+      if (spam.alert) {
+        await sendSpamAlert(client, {
+          guildId,
+          userId: fromId,
+          reason: spam.reason
+        });
+      }
+
       return interaction.reply({
-        content: spam.reason,
+        content: `🚫 ${spam.reason}`,
         ephemeral: true
       });
     }
@@ -58,7 +67,16 @@ module.exports = {
 
     /* ================== VALIDATION ================== */
     if (toUser.bot || toUser.id === fromId || amount <= 0) {
-      await recordFail(fromId, guildId);
+      const fail = await recordFail(fromId, guildId);
+
+      if (fail.blocked) {
+        await sendSpamAlert(client, {
+          guildId,
+          userId: fromId,
+          reason: fail.reason
+        });
+      }
+
       return interaction.reply({
         content: '❌ Invalid transfer request.',
         ephemeral: true
@@ -88,7 +106,6 @@ module.exports = {
 
     await interaction.reply({ embeds: [embed], ephemeral: true });
 
-    /* ================== COLLECTOR ================== */
     const filter = m => m.author.id === fromId;
     const collector = interaction.channel.createMessageCollector({
       filter,
@@ -111,7 +128,7 @@ module.exports = {
           await recordSuccess(fromId);
 
           await msg.reply(
-            `✅ **Transfer Successful**\n` +
+            `✅ Transfer Successful\n` +
             `Tax: **${result.tax}**\n` +
             `Received: **${result.received}**`
           );
@@ -127,7 +144,6 @@ module.exports = {
 
         } catch (err) {
           console.error(err);
-          await recordFail(fromId, guildId);
           await msg.reply('❌ Transfer failed.');
         }
 
@@ -135,7 +151,15 @@ module.exports = {
         collector.stop();
       } else {
         data.tries++;
-        await recordFail(fromId, guildId);
+        const fail = await recordFail(fromId, guildId);
+
+        if (fail.blocked) {
+          await sendSpamAlert(client, {
+            guildId,
+            userId: fromId,
+            reason: fail.reason
+          });
+        }
 
         if (data.tries >= 3) {
           await msg.reply('🚫 Too many wrong attempts. Transfer cancelled.');
