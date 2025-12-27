@@ -46,12 +46,13 @@ module.exports = {
         await sendSpamAlert(client, {
           guildId,
           userId: fromId,
+          userTag: interaction.user.tag,
           reason: spam.reason
         });
       }
 
       return interaction.reply({
-        content: `🚫 ${spam.reason}`,
+        content: spam.reason,
         ephemeral: true
       });
     }
@@ -73,6 +74,7 @@ module.exports = {
         await sendSpamAlert(client, {
           guildId,
           userId: fromId,
+          userTag: interaction.user.tag,
           reason: fail.reason
         });
       }
@@ -106,6 +108,7 @@ module.exports = {
 
     await interaction.reply({ embeds: [embed], ephemeral: true });
 
+    /* ================== COLLECTOR ================== */
     const filter = m => m.author.id === fromId;
     const collector = interaction.channel.createMessageCollector({
       filter,
@@ -128,7 +131,7 @@ module.exports = {
           await recordSuccess(fromId);
 
           await msg.reply(
-            `✅ Transfer Successful\n` +
+            `✅ **Transfer Successful**\n` +
             `Tax: **${result.tax}**\n` +
             `Received: **${result.received}**`
           );
@@ -157,6 +160,7 @@ module.exports = {
           await sendSpamAlert(client, {
             guildId,
             userId: fromId,
+            userTag: interaction.user.tag,
             reason: fail.reason
           });
         }
