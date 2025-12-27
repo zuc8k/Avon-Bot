@@ -15,6 +15,10 @@ const {
   recordFail
 } = require('../services/antiSpam.service');
 
+const {
+  isFrozen
+} = require('../services/creditFreeze.service');
+
 const activeCaptcha = new Map();
 
 module.exports = {
@@ -38,6 +42,21 @@ module.exports = {
     const amount = interaction.options.getInteger('amount');
     const guildId = interaction.guildId;
     const channelId = interaction.channelId;
+
+    /* ================== FREEZE CHECK ================== */
+    if (await isFrozen(fromId, guildId)) {
+      return interaction.reply({
+        content: '🧊 Your credits are frozen. You cannot make transfers.',
+        ephemeral: true
+      });
+    }
+
+    if (await isFrozen(toUser.id, guildId)) {
+      return interaction.reply({
+        content: '🧊 This user credits are frozen. Transfer blocked.',
+        ephemeral: true
+      });
+    }
 
     /* ================== ANTI SPAM ================== */
     const spam = await canTransfer(fromId, guildId);
@@ -68,17 +87,7 @@ module.exports = {
 
     /* ================== VALIDATION ================== */
     if (toUser.bot || toUser.id === fromId || amount <= 0) {
-      const fail = await recordFail(fromId, guildId);
-
-      if (fail.blocked) {
-        await sendSpamAlert(client, {
-          guildId,
-          userId: fromId,
-          userTag: interaction.user.tag,
-          reason: fail.reason
-        });
-      }
-
+      await recordFail(fromId, guildId);
       return interaction.reply({
         content: '❌ Invalid transfer request.',
         ephemeral: true
@@ -103,12 +112,10 @@ module.exports = {
         `Type this code to confirm:\n\n` +
         `**\`${captcha}\`**`
       )
-      .setColor('#b7faff')
-      .setFooter({ text: '3 attempts • 60 seconds' });
+      .setColor('#b7faff');
 
     await interaction.reply({ embeds: [embed], ephemeral: true });
 
-    /* ================== COLLECTOR ================== */
     const filter = m => m.author.id === fromId;
     const collector = interaction.channel.createMessageCollector({
       filter,
@@ -131,9 +138,7 @@ module.exports = {
           await recordSuccess(fromId);
 
           await msg.reply(
-            `✅ **Transfer Successful**\n` +
-            `Tax: **${result.tax}**\n` +
-            `Received: **${result.received}**`
+            `✅ Transfer Successful\nTax: **${result.tax}**\nReceived: **${result.received}**`
           );
 
           await sendCreditLog(client, {
